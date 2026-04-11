@@ -18,8 +18,7 @@ export class Cleaner {
 
         this.interval = setInterval(async () => {
             self.previousDate = new Date();
-            self.nextDate = new Date();
-            self.nextDate.setHours(self.previousDate.getHours() + 1);
+            self.nextDate = new Date(Date.now() + 15 * 60 * 1000);
 
             if (dataSource.isInitialized) {
                 const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
