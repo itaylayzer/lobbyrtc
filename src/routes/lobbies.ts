@@ -28,6 +28,7 @@ lobbiesRouter.post('/:game', async (req, res, next) => {
 
     try {
         const token = await generateToken(parseInt(game));
+        const accessToken = generateAccessToken(token, parseInt(game));
 
         await dataSource.getRepository(Lobby).save({
             token: token,
@@ -36,9 +37,9 @@ lobbiesRouter.post('/:game', async (req, res, next) => {
             webRTCId: webRTCId,
             playersCount: initialPlayers,
             password: typeof password === 'string' && password.length > 0 ? password : undefined,
+            accessToken
         });
 
-        const accessToken = generateAccessToken(token, parseInt(game));
 
         return res.status(201).json({ token, accessToken });
     } catch (err) {
