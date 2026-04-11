@@ -1,0 +1,230 @@
+import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import express from "express";
+import { createFakeLobbyDataSource } from "./fake-lobby-data-source";
+
+const fake = createFakeLobbyDataSource();
+
+mock.module("@/data-source", () => ({
+    dataSource: fake.dataSource,
+}));
+
+const { lobbiesRouter } = await import("@/routes/lobbies");
+
+const OK = "\u2713";
+const ERR = "\u2717";
+
+function check(label: string, condition: boolean, detail?: string): void {
+    const tail = detail ? ` — ${detail}` : "";
+    console.log(`  ${condition ? OK : ERR} ${label}${tail}`);
+    expect(condition, label).toBe(true);
+}
+
+function makeApp() {
+    const app = express();
+    app.use(express.json());
+    app.use("/lobbies", lobbiesRouter);
+    return app;
+}
+
+const flow = {
+    base: "",
+    server: null as ReturnType<typeof createServer> | null,
+    gameId: 1,
+    tokenA: "",
+    tokenB: "",
+    tokenB2: "",
+};
+
+function lobbyPath(suffix: string): string {
+    return `${flow.base}/lobbies/${flow.gameId}${suffix}`;
+}
+
+async function postLobby(body: {
+    webRTCId: string;
+    visible?: boolean;
+    playersCount?: number;
+}): Promise<{ res: Response; token: string | null }> {
+    const res = await fetch(lobbyPath(""), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    const token = res.status === 201 ? ((await res.json()) as string) : null;
+    return { res, token };
+}
+
+describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
+    beforeAll(async () => {
+        fake.clear();
+        console.log("\n========== Lobby API: two sessions (A = public, B = hidden) ==========\n");
+
+        const app = makeApp();
+        const server = createServer(app);
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+        const addr = server.address() as AddressInfo;
+        flow.base = `http://127.0.0.1:${addr.port}`;
+        flow.server = server;
+    });
+
+    afterAll(async () => {
+        if (flow.server) {
+            await new Promise<void>((resolve, reject) => {
+                flow.server!.close((err) => (err ? reject(err) : resolve()));
+            });
+            flow.server = null;
+        }
+        console.log(`\n  ${OK} Full flow completed\n`);
+    });
+
+    test("01 Session A: create visible lobby (5 players)", async () => {
+        console.log("— 01 Session A: create visible lobby (5 players) —");
+        const a1 = await postLobby({ webRTCId: "rtc-host-a", visible: true, playersCount: 5 });
+        check("POST create A", a1.res.status === 201 && Boolean(a1.token), `token=${a1.token}`);
+        flow.tokenA = a1.token!;
+    });
+
+    test("02 Session B: create hidden lobby", async () => {
+        console.log("\n— 02 Session B: create hidden lobby —");
+        const b1 = await postLobby({
+            webRTCId: "rtc-host-b",
+            visible: false,
+            playersCount: 1,
+        });
+        check("POST create B (hidden)", b1.res.status === 201 && Boolean(b1.token), `token=${b1.token}`);
+        flow.tokenB = b1.token!;
+    });
+
+    test("03 GET visibles: only public lobbies, never hidden B", async () => {
+        console.log("\n— 03 Visibles: must include only public lobbies —");
+        const vis1 = await fetch(lobbyPath("/visibles"));
+        check("GET visibles status", vis1.status === 200);
+        const list1 = (await vis1.json()) as Array<{ token: string; webRTCId: string; playersCount: number }>;
+        check("visibles length is 1 (only A)", list1.length === 1);
+        check("visibles contains A", list1.some((l) => l.token === flow.tokenA));
+        check("visibles does NOT contain hidden B", !list1.some((l) => l.token === flow.tokenB));
+        for (const row of list1) {
+            check(`row ${row.token} has fields`, "webRTCId" in row && "playersCount" in row);
+        }
+    });
+
+    test("04 GET lobby A by token", async () => {
+        console.log("\n— 04 Fetch lobby A by token —");
+        const getA = await fetch(lobbyPath(`/${flow.tokenA}`));
+        check("GET A", getA.status === 200);
+        const bodyA = (await getA.json()) as { webRTCId: string; playersCount: number };
+        check("A webRTCId", bodyA.webRTCId === "rtc-host-a");
+        check("A playersCount", bodyA.playersCount === 5);
+    });
+
+    test("05 GET hidden lobby B by token (direct link still works)", async () => {
+        console.log("\n— 05 Fetch hidden B by token —");
+        const getB = await fetch(lobbyPath(`/${flow.tokenB}`));
+        check("GET hidden B by token still works", getB.status === 200);
+        const bodyB = (await getB.json()) as { webRTCId: string; playersCount: number };
+        check("B webRTCId", bodyB.webRTCId === "rtc-host-b");
+    });
+
+    test("06 PUT A playersCount → 2", async () => {
+        console.log("\n— 06 Session A: lower players count —");
+        const put1 = await fetch(lobbyPath(`/${flow.tokenA}/players`), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playersCount: 2 }),
+        });
+        check("PUT players → 2", put1.status === 200);
+    });
+
+    test("07 GET A reflects updated playersCount", async () => {
+        console.log("\n— 07 GET A after PUT —");
+        const getA2 = await fetch(lobbyPath(`/${flow.tokenA}`));
+        const bodyA2 = (await getA2.json()) as { playersCount: number };
+        check("GET A sees updated playersCount", bodyA2.playersCount === 2);
+    });
+
+    for (let i = 0; i < 8; i++) {
+        const n = i + 1;
+        test(`08.${n} quick-play #${n}: only visible A, never hidden B`, async () => {
+            if (n === 1) console.log("\n— 08 Quick-play (8×): visible only, lowest-count pool —");
+            const qp = await fetch(lobbyPath("/quick-play"));
+            check(`quick-play #${n} status 200`, qp.status === 200);
+            const qpBody = (await qp.json()) as { token: string; webRTCId: string; playersCount: number };
+            check(
+                `quick-play #${n} is A, not B`,
+                qpBody.token === flow.tokenA && qpBody.token !== flow.tokenB,
+            );
+        });
+    }
+
+    test("09 Session B: second lobby, visible (higher players)", async () => {
+        console.log("\n— 09 Session B: visible lobby B2 —");
+        const b2 = await postLobby({ webRTCId: "rtc-host-b2", visible: true, playersCount: 6 });
+        check("POST B2 visible", b2.res.status === 201 && Boolean(b2.token));
+        flow.tokenB2 = b2.token!;
+    });
+
+    test("10 quick-play prefers lowest playersCount (A vs B2)", async () => {
+        console.log("\n— 10 Quick-play: A(2) vs B2(6) → A —");
+        const qpPick = await fetch(lobbyPath("/quick-play"));
+        check("quick-play status 200", qpPick.status === 200);
+        const pick = (await qpPick.json()) as { token: string; playersCount: number };
+        check("picked A (lowest count)", pick.token === flow.tokenA && pick.playersCount === 2);
+    });
+
+    test("11 PUT A playersCount → 9 so B2 becomes best target", async () => {
+        console.log("\n— 11 Raise A’s count —");
+        const put2 = await fetch(lobbyPath(`/${flow.tokenA}/players`), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playersCount: 9 }),
+        });
+        check("PUT A players → 9", put2.status === 200);
+    });
+
+    test("12 quick-play now prefers B2", async () => {
+        console.log("\n— 12 Quick-play: should pick B2 —");
+        const qpPick = await fetch(lobbyPath("/quick-play"));
+        check("quick-play status 200", qpPick.status === 200);
+        const pick = (await qpPick.json()) as { token: string };
+        check("picked B2", pick.token === flow.tokenB2);
+    });
+
+    test("13 GET visibles: A and B2 present, hidden B absent", async () => {
+        console.log("\n— 13 Visibles still omit hidden B —");
+        const vis2 = await fetch(lobbyPath("/visibles"));
+        const list2 = (await vis2.json()) as Array<{ token: string }>;
+        const tokens2 = new Set(list2.map((l) => l.token));
+        check("visibles has A and B2", tokens2.has(flow.tokenA) && tokens2.has(flow.tokenB2));
+        check("visibles still omits hidden B", !tokens2.has(flow.tokenB));
+    });
+
+    test("14 DELETE visible lobbies A and B2", async () => {
+        console.log("\n— 14 Tear down visible lobbies —");
+        const delA = await fetch(lobbyPath(`/${flow.tokenA}`), { method: "DELETE" });
+        check("DELETE A", delA.status === 200);
+        const delB2 = await fetch(lobbyPath(`/${flow.tokenB2}`), { method: "DELETE" });
+        check("DELETE B2", delB2.status === 200);
+    });
+
+    test("15 GET visibles empty; only hidden B remains", async () => {
+        console.log("\n— 15 Visibles empty —");
+        const vis3 = await fetch(lobbyPath("/visibles"));
+        const list3 = (await vis3.json()) as unknown[];
+        check("visibles empty (only hidden B left)", list3.length === 0);
+    });
+
+    test("16 GET quick-play returns 404 when no visible lobbies", async () => {
+        console.log("\n— 16 Quick-play 404 —");
+        const qp404 = await fetch(lobbyPath("/quick-play"));
+        check("quick-play 404 when no visible lobbies", qp404.status === 404);
+    });
+
+    test("17 GET hidden B still works; DELETE B cleans up", async () => {
+        console.log("\n— 17 Hidden B still retrievable; cleanup —");
+        const getBStill = await fetch(lobbyPath(`/${flow.tokenB}`));
+        check("GET hidden B still 200", getBStill.status === 200);
+        const delB = await fetch(lobbyPath(`/${flow.tokenB}`), { method: "DELETE" });
+        check("DELETE B", delB.status === 200);
+    });
+});

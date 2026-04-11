@@ -1,0 +1,10 @@
+[
+    {
+        "name": "hi",
+        "maxPlayers": 6
+    },
+    {
+        "name": "catan",
+        "maxPlayers": 6
+    }
+]

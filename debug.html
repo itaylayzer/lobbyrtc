@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>LobbyRTC — Peer + lobbies debug</title>
+        <style>
+            :root {
+                --bg: #0f1419;
+                --panel: #1a2332;
+                --border: #2d3a4d;
+                --text: #e6edf3;
+                --muted: #8b9cb3;
+                --accent: #3d8bfd;
+                --ok: #3fb950;
+                --err: #f85149;
+                --mono: "ui-monospace", "Cascadia Code", "SF Mono", Consolas, monospace;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                font-size: 14px;
+                line-height: 1.5;
+                color: var(--text);
+                background: var(--bg);
+            }
+            .wrap {
+                max-width: 920px;
+                margin: 0 auto;
+                padding: 1.25rem 1rem 2rem;
+            }
+            h1 {
+                margin: 0 0 0.35rem;
+                font-size: 1.35rem;
+                font-weight: 650;
+            }
+            .lead {
+                margin: 0 0 1.25rem;
+                color: var(--muted);
+                font-size: 0.9rem;
+            }
+            .panel {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 1rem 1.1rem;
+                margin-bottom: 1rem;
+            }
+            .row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.65rem;
+                align-items: flex-end;
+                margin-bottom: 0.75rem;
+            }
+            .row:last-child {
+                margin-bottom: 0;
+            }
+            label.field {
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+                font-size: 0.72rem;
+                font-weight: 600;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            input[type="text"],
+            input[type="number"] {
+                font-family: inherit;
+                font-size: 0.9rem;
+                padding: 0.45rem 0.55rem;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background: var(--bg);
+                color: var(--text);
+                min-width: 220px;
+            }
+            input:focus {
+                outline: 2px solid var(--accent);
+                outline-offset: 1px;
+            }
+            .btns {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            button {
+                font-family: inherit;
+                font-size: 0.88rem;
+                font-weight: 600;
+                padding: 0.5rem 0.9rem;
+                border-radius: 6px;
+                border: 1px solid var(--border);
+                background: #212c3d;
+                color: var(--text);
+                cursor: pointer;
+            }
+            button:hover {
+                background: #2a3849;
+            }
+            button.primary {
+                background: var(--accent);
+                border-color: #58a6ff;
+                color: #fff;
+            }
+            button.primary:hover {
+                filter: brightness(1.08);
+            }
+            button.danger {
+                border-color: #da3633;
+                color: #ffb1ad;
+                background: #3d1f1f;
+            }
+            pre#log {
+                margin: 0;
+                padding: 0.85rem 1rem;
+                background: #0d1117;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                font-family: var(--mono);
+                font-size: 0.78rem;
+                line-height: 1.45;
+                max-height: 420px;
+                overflow: auto;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .log-ok {
+                color: var(--ok);
+            }
+            .log-err {
+                color: var(--err);
+            }
+            .log-muted {
+                color: var(--muted);
+            }
+            .status {
+                margin-top: 0.75rem;
+                font-size: 0.85rem;
+                color: var(--muted);
+            }
+            .status strong {
+                color: var(--text);
+                font-weight: 600;
+            }
+        </style>
+        <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    </head>
+    <body>
+        <div class="wrap">
+            <h1>LobbyRTC debug client</h1>
+            <p class="lead">
+                Two PeerJS connections in one tab: <strong>host</strong> registers the lobby;
+                <strong>joiner</strong> opens a data connection to the host’s Peer id from the lobby record.
+                Serve this file from the same origin as the API or expect CORS to block <code>fetch</code> (default API base
+                below).
+            </p>
+
+            <div class="panel">
+                <div class="row">
+                    <label class="field">
+                        API base (no trailing slash)
+                        <input type="text" id="apiBase" autocomplete="off" />
+                    </label>
+                    <label class="field">
+                        Game id
+                        <input type="number" id="gameId" min="1" value="1" />
+                    </label>
+                </div>
+                <div class="btns">
+                    <button type="button" class="primary" id="btnRun">Create lobby + connect peers</button>
+                    <button type="button" id="btnCleanup">Destroy peers</button>
+                    <button type="button" class="danger" id="btnDeleteLobby" disabled>DELETE lobby</button>
+                </div>
+                <div class="status" id="status">
+                    Host peer: <strong>—</strong> · Joiner peer: <strong>—</strong> · Token:
+                    <strong>—</strong>
+                </div>
+            </div>
+
+            <h2 style="font-size: 0.95rem; margin: 0 0 0.5rem">Log</h2>
+            <pre id="log"></pre>
+        </div>
+
+        <script>
+            (function () {
+                const PEER_PATH = "/peer";
+                const KEY = "peerjs";
+
+                const $log = document.getElementById("log");
+                const $apiBase = document.getElementById("apiBase");
+                const $gameId = document.getElementById("gameId");
+                const $btnRun = document.getElementById("btnRun");
+                const $btnCleanup = document.getElementById("btnCleanup");
+                const $btnDelete = document.getElementById("btnDeleteLobby");
+                const $status = document.getElementById("status");
+
+                function defaultApiBase() {
+                    if (location.protocol === "http:" || location.protocol === "https:") {
+                        return location.origin;
+                    }
+                    return "http://127.0.0.1:8080";
+                }
+                $apiBase.value = defaultApiBase();
+
+                let hostPeer = null;
+                let joinPeer = null;
+                let lastToken = null;
+                let lastGameId = null;
+                let busy = false;
+
+                function log(msg, cls) {
+                    const line = document.createElement("div");
+                    if (cls) line.className = cls;
+                    line.textContent = new Date().toISOString().slice(11, 23) + " " + msg;
+                    $log.appendChild(line);
+                    $log.scrollTop = $log.scrollHeight;
+                }
+
+                function setStatus(hostId, joinId, token) {
+                    $status.innerHTML =
+                        "Host peer: <strong>" +
+                        (hostId || "—") +
+                        "</strong> · Joiner peer: <strong>" +
+                        (joinId || "—") +
+                        "</strong> · Token: <strong>" +
+                        (token || "—") +
+                        "</strong>";
+                }
+
+                function peerOptionsFromApiBase(apiBase) {
+                    const u = new URL(apiBase);
+                    const port = u.port ? parseInt(u.port, 10) : u.protocol === "https:" ? 443 : 80;
+                    return {
+                        host: u.hostname,
+                        port: port,
+                        path: PEER_PATH,
+                        secure: u.protocol === "https:",
+                        key: KEY,
+                        debug: 1,
+                    };
+                }
+
+                function openPeer(label, opts) {
+                    return new Promise(function (resolve, reject) {
+                        const p = new Peer(opts);
+                        const to = setTimeout(function () {
+                            reject(new Error(label + ": open timeout (15s)"));
+                        }, 15000);
+                        p.on("open", function (id) {
+                            clearTimeout(to);
+                            log(label + " open, id=" + id, "log-ok");
+                            resolve({ peer: p, id: id });
+                        });
+                        p.on("error", function (err) {
+                            clearTimeout(to);
+                            reject(err);
+                        });
+                    });
+                }
+
+                function destroyPeers() {
+                    if (hostPeer) {
+                        try {
+                            hostPeer.destroy();
+                        } catch (e) {}
+                        hostPeer = null;
+                    }
+                    if (joinPeer) {
+                        try {
+                            joinPeer.destroy();
+                        } catch (e) {}
+                        joinPeer = null;
+                    }
+                    setStatus(null, null, lastToken);
+                    log("Peers destroyed.", "log-muted");
+                }
+
+                $btnCleanup.addEventListener("click", function () {
+                    destroyPeers();
+                    $btnDelete.disabled = !lastToken;
+                });
+
+                $btnDelete.addEventListener("click", async function () {
+                    if (!lastToken || lastGameId == null) return;
+                    const base = $apiBase.value.trim().replace(/\/$/, "");
+                    try {
+                        const res = await fetch(base + "/lobbies/" + lastGameId + "/" + encodeURIComponent(lastToken), {
+                            method: "DELETE",
+                        });
+                        if (!res.ok) throw new Error("DELETE " + res.status);
+                        log("Lobby deleted.", "log-ok");
+                        lastToken = null;
+                        $btnDelete.disabled = true;
+                        setStatus(hostPeer && hostPeer.id, joinPeer && joinPeer.id, null);
+                    } catch (e) {
+                        log("DELETE failed: " + (e && e.message ? e.message : e), "log-err");
+                    }
+                });
+
+                $btnRun.addEventListener("click", async function () {
+                    if (busy) return;
+                    busy = true;
+                    $btnRun.disabled = true;
+                    $log.innerHTML = "";
+                    $btnDelete.disabled = true;
+
+                    const apiBase = $apiBase.value.trim().replace(/\/$/, "");
+                    const gameId = parseInt($gameId.value, 10);
+                    lastGameId = gameId;
+                    lastToken = null;
+
+                    if (!apiBase || !gameId || gameId < 1) {
+                        log("Invalid API base or game id.", "log-err");
+                        busy = false;
+                        $btnRun.disabled = false;
+                        return;
+                    }
+
+                    const peerOpts = peerOptionsFromApiBase(apiBase);
+
+                    try {
+                        destroyPeers();
+                        log("API: " + apiBase + " · Peer path: " + PEER_PATH, "log-muted");
+
+                        log("Opening host Peer…");
+                        const host = await openPeer("Host Peer", peerOpts);
+                        hostPeer = host.peer;
+
+                        log("POST lobby (webRTCId = host id)…");
+                        const postRes = await fetch(apiBase + "/lobbies/" + gameId, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                webRTCId: host.id,
+                                visible: true,
+                                playersCount: 1,
+                            }),
+                        });
+                        if (!postRes.ok) {
+                            const t = await postRes.text();
+                            throw new Error("POST lobby " + postRes.status + " " + t);
+                        }
+                        const token = await postRes.json();
+                        if (typeof token !== "string") {
+                            throw new Error("Expected token string, got: " + JSON.stringify(token));
+                        }
+                        lastToken = token;
+                        $btnDelete.disabled = false;
+                        log("Lobby created, token=" + token, "log-ok");
+
+                        log("Opening joiner Peer…");
+                        const join = await openPeer("Joiner Peer", peerOpts);
+                        joinPeer = join.peer;
+                        setStatus(host.id, join.id, lastToken);
+
+                        log("GET lobby by token…");
+                        const getRes = await fetch(apiBase + "/lobbies/" + gameId + "/" + encodeURIComponent(token));
+                        if (!getRes.ok) {
+                            const t = await getRes.text();
+                            throw new Error("GET lobby " + getRes.status + " " + t);
+                        }
+                        const lobby = await getRes.json();
+                        const remoteId = lobby.webRTCId;
+                        log("Lobby webRTCId (host): " + remoteId, "log-muted");
+                        if (remoteId !== host.id) {
+                            log("Warning: lobby webRTCId !== host peer id", "log-err");
+                        }
+
+                        hostPeer.on("connection", function (conn) {
+                            log("Host: incoming connection from " + conn.peer, "log-ok");
+                            conn.on("data", function (data) {
+                                log("Host ← data: " + data, "log-ok");
+                                try {
+                                    conn.send("host-pong");
+                                } catch (e) {}
+                            });
+                            conn.on("open", function () {
+                                log("Host: data channel open (incoming)", "log-muted");
+                            });
+                            conn.on("error", function (e) {
+                                log("Host conn error: " + (e && e.message ? e.message : e), "log-err");
+                            });
+                        });
+
+                        log("Joiner: connect data to " + remoteId + "…");
+                        const conn = joinPeer.connect(remoteId, { reliable: true });
+                        conn.on("open", function () {
+                            log("Joiner: data channel open → send ping", "log-ok");
+                            conn.send("joiner-ping");
+                        });
+                        conn.on("data", function (data) {
+                            log("Joiner ← data: " + data, "log-ok");
+                        });
+                        conn.on("error", function (e) {
+                            log("Joiner conn error: " + (e && e.message ? e.message : e), "log-err");
+                        });
+
+                        log("Flow finished (watch for ping/pong above).", "log-ok");
+                    } catch (e) {
+                        log("Error: " + (e && e.message ? e.message : e), "log-err");
+                        destroyPeers();
+                        lastToken = null;
+                        $btnDelete.disabled = true;
+                    } finally {
+                        busy = false;
+                        $btnRun.disabled = false;
+                    }
+                });
+            })();
+        </script>
+    </body>
+</html>

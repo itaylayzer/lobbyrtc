@@ -1,0 +1,23 @@
+{
+    "scripts": {
+        "test": "bun test",
+        "dev": "bun --hot src/server.ts",
+        "build": "mkdir -p build; bun build src/server.ts --target=bun --outfile build/server.js; cp -r public build/public",
+        "start": "bun build/server.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.6",
+        "express": "^5.2.1",
+        "nunjucks": "^3.2.4",
+        "peer": "^1.0.2",
+        "sqlite3": "^6.0.1",
+        "typeorm": "^0.3.28",
+        "winston": "^3.19.0"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.11",
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/nunjucks": "^3.2.6"
+    }
+}

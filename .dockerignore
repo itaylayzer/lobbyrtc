@@ -1,0 +1,11 @@
+node_modules/
+src/
+package.json
+.env
+.gitignore
+bun.lock
+config.json
+debug.html
+Dockerfile
+lobbies.sql
+tsconfig.json

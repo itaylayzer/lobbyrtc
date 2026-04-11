@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>LobbyRTC — Dashboard</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    Segoe UI,
+                    Roboto,
+                    sans-serif;
+                font-size: 14px;
+                line-height: 1.45;
+                color: #222;
+                background: #e8e8e8;
+            }
+
+            .wrap {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 1.25rem 1rem 2rem;
+            }
+
+            header {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 0.75rem;
+                margin-bottom: 1.25rem;
+                padding-bottom: 0.75rem;
+                border-bottom: 1px solid #bbb;
+            }
+
+            header h1 {
+                margin: 0;
+                font-size: 1.35rem;
+                font-weight: 600;
+            }
+
+            header p {
+                margin: 0.2rem 0 0;
+                color: #555;
+                font-size: 0.9rem;
+            }
+
+            .live {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                font-size: 0.85rem;
+                color: #555;
+            }
+
+            .live-dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: #333;
+            }
+
+            .live-dot.err {
+                background: #c00;
+            }
+
+            .grid-cards {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 0.75rem;
+                margin-bottom: 1.25rem;
+            }
+
+            .card {
+                background: #fff;
+                border: 1px solid #aaa;
+                padding: 0.75rem 0.9rem;
+            }
+
+            .card h3 {
+                margin: 0 0 0.25rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: #555;
+            }
+
+            .card .val {
+                font-size: 1.25rem;
+                font-weight: 600;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .card .sub {
+                margin-top: 0.25rem;
+                font-size: 0.8rem;
+                color: #666;
+            }
+
+            .readiness-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                margin-top: 0.45rem;
+            }
+
+            .pill {
+                font-size: 0.75rem;
+                padding: 0.15rem 0.4rem;
+                border: 1px solid #ccc;
+                background: #f7f7f7;
+                color: #333;
+            }
+
+            .pill.bad {
+                border-color: #999;
+                color: #000;
+            }
+
+            section {
+                margin-bottom: 1.5rem;
+            }
+
+            section h2 {
+                margin: 0 0 0.5rem;
+                font-size: 1rem;
+                font-weight: 600;
+            }
+
+            .panel {
+                background: #fff;
+                border: 1px solid #aaa;
+                overflow: hidden;
+            }
+
+            .toolbar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.65rem;
+                align-items: flex-end;
+                padding: 0.65rem 0.75rem;
+                border-bottom: 1px solid #ccc;
+                background: #f2f2f2;
+            }
+
+            label.field {
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+                font-size: 0.75rem;
+                font-weight: 500;
+                color: #444;
+            }
+
+            input[type="search"],
+            select {
+                font-family: inherit;
+                font-size: 0.85rem;
+                padding: 0.35rem 0.5rem;
+                border: 1px solid #999;
+                background: #fff;
+                color: #222;
+                min-width: 160px;
+            }
+
+            input[type="search"]:focus,
+            select:focus {
+                outline: 1px solid #333;
+                outline-offset: 1px;
+            }
+
+            .hint {
+                margin-left: auto;
+                font-size: 0.8rem;
+                color: #555;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.88rem;
+            }
+
+            th,
+            td {
+                text-align: left;
+                padding: 0.45rem 0.75rem;
+                border-bottom: 1px solid #ddd;
+            }
+
+            th {
+                font-size: 0.72rem;
+                font-weight: 600;
+                color: #444;
+                background: #f0f0f0;
+                border-bottom: 1px solid #bbb;
+            }
+
+            tbody tr:hover td {
+                background: #f9f9f9;
+            }
+
+            .num,
+            .mono {
+                font-variant-numeric: tabular-nums;
+            }
+
+            .muted {
+                color: #666;
+            }
+
+            .tag {
+                font-size: 0.8rem;
+            }
+
+            .truncate {
+                max-width: 220px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .error-banner {
+                display: none;
+                margin-bottom: 0.75rem;
+                padding: 0.6rem 0.75rem;
+                border: 1px solid #c00;
+                background: #fdd;
+                color: #600;
+                font-size: 0.9rem;
+            }
+
+            .error-banner.show {
+                display: block;
+            }
+
+            @media (max-width: 640px) {
+                .hint {
+                    margin-left: 0;
+                    width: 100%;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="wrap">
+            <header>
+                <div>
+                    <h1>LobbyRTC</h1>
+                    <p>Live view of games, lobbies, and process health.</p>
+                </div>
+                <div class="live" id="liveStatus">
+                    <span class="live-dot" id="liveDot"></span>
+                    <span id="liveText">Connecting…</span>
+                </div>
+            </header>
+
+            <div class="error-banner" id="errorBanner"></div>
+
+            <div class="grid-cards">
+                <div class="card">
+                    <h3>Process uptime</h3>
+                    <div class="val" id="uptimeVal">—</div>
+                    <div class="sub" id="clockVal">Server clock —</div>
+                </div>
+                <div class="card">
+                    <h3>HTTP requests (total)</h3>
+                    <div class="val" id="reqVal">—</div>
+                    <div class="sub">Counted since this process started</div>
+                </div>
+                <div class="card">
+                    <h3>Readiness</h3>
+                    <div class="val" id="readyVal">—</div>
+                    <div class="readiness-row" id="readinessPills"></div>
+                </div>
+            </div>
+
+            <section>
+                <h2>Lobby cleaner</h2>
+                <div class="grid-cards">
+                    <div class="card">
+                        <h3>Last run removed</h3>
+                        <div class="val" id="cleanerDeletedVal">—</div>
+                        <div class="sub">
+                            Stale lobbies deleted in the last hourly pass
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Previous run</h3>
+                        <div class="val" id="cleanerPrevVal">—</div>
+                        <div class="sub">When the last pass started</div>
+                    </div>
+                    <div class="card">
+                        <h3>Next run</h3>
+                        <div class="val" id="cleanerNextVal">—</div>
+                        <div class="sub">Scheduled start of the next pass</div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Games</h2>
+                <div class="panel">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Max players</th>
+                                <th>Lobbies</th>
+                                <th>Visible</th>
+                                <th>Σ players</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gamesBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section>
+                <h2>Lobbies</h2>
+                <div class="panel">
+                    <div class="toolbar">
+                        <label class="field">
+                            Game
+                            <select
+                                id="gameFilter"
+                                aria-label="Filter by game"
+                            ></select>
+                        </label>
+                        <label class="field">
+                            Search token
+                            <input
+                                type="search"
+                                id="tokenSearch"
+                                placeholder="Substring match…"
+                                autocomplete="off"
+                            />
+                        </label>
+                        <label class="field">
+                            Sort
+                            <select id="sortMode" aria-label="Sort lobbies">
+                                <option value="players-desc">
+                                    Players (high → low)
+                                </option>
+                                <option value="players-asc">
+                                    Players (low → high)
+                                </option>
+                                <option value="token-asc">Token (A → Z)</option>
+                                <option value="token-desc">
+                                    Token (Z → A)
+                                </option>
+                            </select>
+                        </label>
+                        <div class="hint" id="lobbyHint">—</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Game</th>
+                                <th>Token</th>
+                                <th>Players</th>
+                                <th>Visible</th>
+                                <th>WebRTC id</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lobbiesBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <script>
+            (function () {
+                const POLL_MS = 4000;
+                const TOP_N = 20;
+                const SEARCH_CAP = 100;
+
+                const $ = (id) => document.getElementById(id);
+
+                let lastPayload = null;
+
+                function escapeHtml(s) {
+                    return String(s)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#39;");
+                }
+
+                function formatUptime(sec) {
+                    const s = Math.floor(sec % 60);
+                    const m = Math.floor((sec / 60) % 60);
+                    const h = Math.floor((sec / 3600) % 24);
+                    const d = Math.floor(sec / 86400);
+                    const parts = [];
+                    if (d) parts.push(d + "d");
+                    if (h || d) parts.push(h + "h");
+                    parts.push(m + "m");
+                    parts.push(s + "s");
+                    return parts.join(" ");
+                }
+
+                function setError(msg) {
+                    const el = $("errorBanner");
+                    if (!msg) {
+                        el.classList.remove("show");
+                        el.textContent = "";
+                        return;
+                    }
+                    el.textContent = msg;
+                    el.classList.add("show");
+                }
+
+                function renderReadiness(readiness) {
+                    const names = [
+                        ["dataSource", "DB"],
+                        ["web", "HTTP"],
+                        ["peer", "Peer"],
+                        ["games", "Games"],
+                        ["cleaner", "Cleaner"],
+                    ];
+                    const pills = names
+                        .map(([k, label]) => {
+                            const ok = readiness[k];
+                            return (
+                                '<span class="pill' +
+                                (ok ? "" : " bad") +
+                                '">' +
+                                escapeHtml(label) +
+                                ": " +
+                                (ok ? "up" : "down") +
+                                "</span>"
+                            );
+                        })
+                        .join("");
+                    $("readinessPills").innerHTML = pills;
+                    const allOk = Object.values(readiness).every(Boolean);
+                    $("readyVal").textContent = allOk ? "Ready" : "Degraded";
+                    $("liveDot").className = "live-dot" + (allOk ? "" : " err");
+                    $("liveText").textContent = allOk
+                        ? "All subsystems ready"
+                        : "Some checks failing";
+                }
+
+                function renderGames(games) {
+                    const body = $("gamesBody");
+                    if (!games.length) {
+                        body.innerHTML =
+                            '<tr><td colspan="6" class="muted">No games configured.</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = games
+                        .map(
+                            (g) =>
+                                "<tr><td class='num'>" +
+                                g.id +
+                                "</td><td>" +
+                                escapeHtml(g.name) +
+                                "</td><td class='num'>" +
+                                g.maxPlayers +
+                                "</td><td class='num'>" +
+                                g.lobbyCount +
+                                "</td><td class='num'>" +
+                                g.visibleLobbyCount +
+                                "</td><td class='num'>" +
+                                g.playersInLobbies +
+                                "</td></tr>",
+                        )
+                        .join("");
+                }
+
+                function getLobbyRowsFlat(games) {
+                    const rows = [];
+                    for (const g of games) {
+                        for (const l of g.lobbies) {
+                            rows.push({
+                                gameId: g.id,
+                                gameName: g.name,
+                                token: l.token,
+                                playersCount: l.playersCount,
+                                visible: l.visible,
+                                webRTCId: l.webRTCId,
+                            });
+                        }
+                    }
+                    return rows;
+                }
+
+                function refreshGameFilterOptions(games) {
+                    const sel = $("gameFilter");
+                    const prev = sel.value;
+                    sel.innerHTML =
+                        '<option value="all">All games</option>' +
+                        games
+                            .map(
+                                (g) =>
+                                    '<option value="' +
+                                    g.id +
+                                    '">' +
+                                    escapeHtml(g.name) +
+                                    " (#" +
+                                    g.id +
+                                    ")</option>",
+                            )
+                            .join("");
+                    if (prev && [...sel.options].some((o) => o.value === prev))
+                        sel.value = prev;
+                }
+
+                function compareSort(mode, a, b) {
+                    if (mode === "players-desc")
+                        return b.playersCount - a.playersCount;
+                    if (mode === "players-asc")
+                        return a.playersCount - b.playersCount;
+                    if (mode === "token-desc")
+                        return b.token.localeCompare(a.token);
+                    return a.token.localeCompare(b.token);
+                }
+
+                function renderLobbies() {
+                    if (!lastPayload) return;
+                    const games = lastPayload.games;
+                    const gameId = $("gameFilter").value;
+                    const q = $("tokenSearch").value.trim().toLowerCase();
+                    const sortMode = $("sortMode").value;
+
+                    let rows = getLobbyRowsFlat(games);
+                    if (gameId !== "all") {
+                        const id = parseInt(gameId, 10);
+                        rows = rows.filter((r) => r.gameId === id);
+                    }
+                    const totalMatching = rows.length;
+
+                    if (q) {
+                        rows = rows.filter((r) =>
+                            r.token.toLowerCase().includes(q),
+                        );
+                    }
+
+                    rows.sort((a, b) => compareSort(sortMode, a, b));
+
+                    const limited = q
+                        ? rows.slice(0, SEARCH_CAP)
+                        : rows.slice(0, TOP_N);
+
+                    const hint = $("lobbyHint");
+                    if (!rows.length) {
+                        hint.textContent = "No lobbies match.";
+                    } else if (q) {
+                        hint.textContent =
+                            "Showing " +
+                            limited.length +
+                            " of " +
+                            rows.length +
+                            " match" +
+                            (rows.length !== 1 ? "es" : "") +
+                            (rows.length > SEARCH_CAP
+                                ? " (cap " + SEARCH_CAP + ")"
+                                : "");
+                    } else {
+                        hint.textContent =
+                            "Top " +
+                            TOP_N +
+                            " by current sort (" +
+                            totalMatching +
+                            " total in scope). Search to filter by token.";
+                    }
+
+                    const body = $("lobbiesBody");
+                    body.innerHTML = limited
+                        .map(
+                            (r) =>
+                                "<tr><td>" +
+                                escapeHtml(r.gameName) +
+                                " <span class='num muted'>#" +
+                                r.gameId +
+                                "</span></td><td class='mono num'>" +
+                                escapeHtml(r.token) +
+                                "</td><td class='num'>" +
+                                r.playersCount +
+                                "</td><td>" +
+                                (r.visible
+                                    ? '<span class="tag yes">yes</span>'
+                                    : '<span class="tag no">no</span>') +
+                                "</td><td class='truncate' title='" +
+                                escapeHtml(r.webRTCId) +
+                                "'>" +
+                                escapeHtml(r.webRTCId) +
+                                "</td></tr>",
+                        )
+                        .join("");
+                }
+
+                function formatCleanerDeletedCount(n) {
+                    if (typeof n !== "number") return "—";
+                    if (n === -1) return "…";
+                    if (n === -2) return "…";
+                    return String(n);
+                }
+
+                function formatCleanerWhen(iso) {
+                    if (!iso) return "—";
+                    const t = new Date(iso);
+                    if (Number.isNaN(t.getTime())) return "—";
+                    return t.toLocaleString(undefined, { hour12: false });
+                }
+
+                function applyPayload(data) {
+                    lastPayload = data;
+                    $("uptimeVal").textContent = formatUptime(
+                        data.server.uptimeSec,
+                    );
+                    const d = new Date(data.server.now);
+                    $("clockVal").textContent =
+                        "Server clock " +
+                        d.toLocaleString(undefined, { hour12: false });
+                    $("reqVal").textContent = String(
+                        data.usage.httpRequestsTotal,
+                    );
+                    renderReadiness(data.server.readiness);
+                    if (data.cleaner) {
+                        $("cleanerDeletedVal").textContent =
+                            formatCleanerDeletedCount(
+                                data.cleaner.lastDeletedCount,
+                            );
+                        $("cleanerPrevVal").textContent = formatCleanerWhen(
+                            data.cleaner.previous,
+                        );
+                        $("cleanerNextVal").textContent = formatCleanerWhen(
+                            data.cleaner.next,
+                        );
+                    } else {
+                        $("cleanerDeletedVal").textContent = "—";
+                        $("cleanerPrevVal").textContent = "—";
+                        $("cleanerNextVal").textContent = "—";
+                    }
+                    renderGames(data.games);
+                    refreshGameFilterOptions(data.games);
+                    renderLobbies();
+                }
+
+                async function tick() {
+                    try {
+                        const res = await fetch("/api/overview", {
+                            headers: { Accept: "application/json" },
+                        });
+                        if (!res.ok) throw new Error("HTTP " + res.status);
+                        const data = await res.json();
+                        setError("");
+                        applyPayload(data);
+                    } catch (e) {
+                        setError(
+                            "Could not load overview: " +
+                                (e && e.message ? e.message : e),
+                        );
+                        $("liveDot").className = "live-dot err";
+                        $("liveText").textContent = "Offline / error";
+                    }
+                }
+
+                $("gameFilter").addEventListener("change", renderLobbies);
+                $("tokenSearch").addEventListener("input", renderLobbies);
+                $("sortMode").addEventListener("change", renderLobbies);
+
+                tick();
+                setInterval(tick, POLL_MS);
+            })();
+        </script>
+    </body>
+</html>
