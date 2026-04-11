@@ -41,7 +41,7 @@ async function applyGame(game: GameJson): Promise<{ gameName: string, state: "ok
 }
 
 export async function applyGames() {
-    const configJsonFile = await Bun.file('config.json').text();
+    const configJsonFile = await Bun.file('config/config.json').text();
     const games = JSON.parse(configJsonFile) as ConfigJson;
 
     if (!games || games.length === 0) {
