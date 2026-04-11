@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from "typeorm";
 import { Game } from "./game";
 
 @Entity('lobby')
@@ -22,12 +22,15 @@ export class Lobby {
     @Column('smallint')
     playersCount!: number;
 
-    @UpdateDateColumn()
-    updateAt!: Date;
-
     @Column('varchar', { length: 255, nullable: true })
     password?: string;
 
     @Column('varchar', { length: 255 })
     accessToken!: string;
+
+    @UpdateDateColumn()
+    updatedAt!: Date;
+
+    @CreateDateColumn()
+    createdAt!: Date;
 }

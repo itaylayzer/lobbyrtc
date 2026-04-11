@@ -57,10 +57,15 @@ lobbiesRouter.get('/:game/quick-play', async (req, res, next) => {
     }
 
     try {
-        const list = await dataSource.getRepository(Lobby).find({
+        const list = (await dataSource.getRepository(Lobby).find({
             where: { game: { id: +game }, visible: true, password: undefined },
-        });
-        if (list.length === 0) {
+        }));
+        const canidates = list.filter((l) => l.playersCount > 0);
+
+        if (canidates.length === 0) {
+            if (list.length > 0) {
+                cleaner.emptyLobbies(list);
+            }
             return res.status(404).json({ error: 'No visible lobbies' });
         }
 
@@ -129,6 +134,7 @@ lobbiesRouter.delete('/', async (req, res, next) => {
             }
         })
 
+        logger.info(`lobby deleted: ${token} for game ${game}`);
         return res.status(200).send();
     } catch (err) {
         res.status(500).json({ error: 'Internal server error', errorDetails: err });
@@ -195,10 +201,17 @@ lobbiesRouter.put('/players', async (req, res, next) => {
             return res.status(404).json({ error: 'Lobby not found' });
         }
 
+        if (playersCount === 0) {
+            await dataSource.getRepository(Lobby).delete(lobby);
+            logger.info(`lobby deleted: ${token} for game ${game}, cause players count is 0`);
+
+            return res.status(200).send();
+        }
+
         lobby.playersCount = playersCount;
         await dataSource.getRepository(Lobby).save(lobby);
 
-        return res.status(200).json(lobby.webRTCId);
+        return res.status(200).send();
     } catch (err) {
         res.status(500).json({ error: 'Internal server error', errorDetails: err });
         return next(err);

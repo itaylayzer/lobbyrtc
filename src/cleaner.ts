@@ -10,9 +10,8 @@ export class Cleaner {
     private interval: NodeJS.Timeout;
 
     constructor() {
-        this.previousDate = new Date();
-        this.nextDate = this.previousDate;
-        this.nextDate.setHours(this.nextDate.getHours() + 1);
+        this.previousDate = new Date(Date.now() + 15 * 60 * 1000);
+        this.nextDate = this.previousDate
         this.lastDeletedCount = 0;
         const self = this;
 
@@ -27,7 +26,7 @@ export class Cleaner {
                     self.lastDeletedCount = -1;
                     const deleteList = await dataSource.getRepository(Lobby).find({
                         where: {
-                            updateAt: LessThan(thirtyMinutesAgo)
+                            updatedAt: LessThan(thirtyMinutesAgo)
                         },
                         relations: {
                             game: true
@@ -63,5 +62,19 @@ export class Cleaner {
 
     getLastDeletedCount() {
         return this.lastDeletedCount;
+    }
+
+    emptyLobbies(lobbies: Lobby[]) {
+        const canidatesToDistroy = lobbies.filter((l) => l.playersCount === 0 && l.createdAt.getTime() < Date.now() - 15 * 1000);
+
+        if (dataSource.isInitialized) {
+            dataSource.getRepository(Lobby).remove(canidatesToDistroy).then(() => {
+                canidatesToDistroy.forEach((lobby) => {
+                    cleanerlogger.info('destroyed empty lobby for game: ', lobby.game.name, ' lobby:', lobby);
+                })
+            }).catch((err) => {
+                cleanerlogger.error('error while destroying empty lobbies:', err);
+            })
+        }
     }
 }
