@@ -21,6 +21,8 @@ dashboardRouter.get("/api/overview", async (_req, res, next) => {
         res.json({
             server: {
                 uptimeSec: process.uptime(),
+                cpuUsage: process.cpuUsage(),
+                memoryUsage: process.memoryUsage(),
                 now: Date.now(),
                 readiness: global.readiness,
             },

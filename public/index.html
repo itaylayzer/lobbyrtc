@@ -476,6 +476,8 @@
                     <h3>Process uptime</h3>
                     <div class="val" id="uptimeVal">—</div>
                     <div class="sub" id="clockVal">Server clock —</div>
+                    <div class="sub mono" id="cpuVal">—</div>
+                    <div class="sub mono" id="memVal">—</div>
                 </div>
                 <div class="card">
                     <h3>HTTP requests (total)</h3>
@@ -853,6 +855,42 @@
                     return t.toLocaleString(undefined, { hour12: false });
                 }
 
+                function formatCpuUsage(c) {
+                    if (
+                        !c ||
+                        typeof c.user !== "number" ||
+                        typeof c.system !== "number"
+                    ) {
+                        return "—";
+                    }
+                    const u = (c.user / 1000).toFixed(0);
+                    const s = (c.system / 1000).toFixed(0);
+                    return (
+                        "CPU (cumulative): user " +
+                        u +
+                        " ms · system " +
+                        s +
+                        " ms"
+                    );
+                }
+
+                function formatMemoryUsage(m) {
+                    if (!m || typeof m.rss !== "number") return "—";
+                    const mb = (n) => (n / (1024 * 1024)).toFixed(1);
+                    let line =
+                        "Memory: RSS " +
+                        mb(m.rss) +
+                        " MB · heap " +
+                        mb(m.heapUsed) +
+                        " / " +
+                        mb(m.heapTotal) +
+                        " MB";
+                    if (typeof m.external === "number") {
+                        line += " · external " + mb(m.external) + " MB";
+                    }
+                    return line;
+                }
+
                 function applyPayload(data) {
                     lastPayload = data;
                     $("uptimeVal").textContent = formatUptime(
@@ -862,6 +900,12 @@
                     $("clockVal").textContent =
                         "Server clock " +
                         d.toLocaleString(undefined, { hour12: false });
+                    $("cpuVal").textContent = formatCpuUsage(
+                        data.server.cpuUsage,
+                    );
+                    $("memVal").textContent = formatMemoryUsage(
+                        data.server.memoryUsage,
+                    );
                     $("reqVal").textContent = String(
                         data.usage.httpRequestsTotal,
                     );
