@@ -26,7 +26,18 @@ const server = createServer(app);
 const dashboardApp = express();
 const dashboardServer = createServer(dashboardApp);
 
-dataSource.initialize().then(() => {
+const keyPromise = new Promise<void>((resolve, reject) => {
+    Bun.file('private.pem').text().then(key => {
+        global.jwtKey = key;
+        resolve();
+    }).catch(err => {
+        logger.error("could not read private key:", err);
+        process.exit(2);
+        reject(err);
+    });
+})
+
+Promise.all([keyPromise, dataSource.initialize()]).then(() => {
     readiness.dataSource = true;
     logger.info("data source initialized");
 
@@ -34,7 +45,7 @@ dataSource.initialize().then(() => {
         readiness.games = true;
     }).catch(err => {
         gamelogger.error("couldnot load games:", err);
-        process.exit(1);
+        process.exit(3);
     });
 
     try {

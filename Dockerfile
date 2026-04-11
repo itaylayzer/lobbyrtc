@@ -5,4 +5,4 @@ WORKDIR /app
 RUN bun install sqlite3
 COPY build/ .
 
-CMD ["bun", "run", "server.js"]
+CMD ["bash", "generate-key.sh;", "bun", "run", "server.js"]

@@ -23,4 +23,5 @@ declare global {
     var cleanerlogger: Logger;
 
     var cleaner: Cleaner;
+    var jwtKey: string;
 }

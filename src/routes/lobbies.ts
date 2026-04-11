@@ -3,6 +3,7 @@ import { Lobby } from "@/entities/lobby";
 import { trackingMiddleware } from "@/middlewares/tracking";
 import { arrayShuffle } from "@/utils/arrayShuffle";
 import { generateToken } from "@/utils/generateToken";
+import { extractAccessToken, generateAccessToken } from "@/utils/jwtUtils";
 import { Router } from "express";
 
 export const lobbiesRouter = Router();
@@ -37,7 +38,9 @@ lobbiesRouter.post('/:game', async (req, res, next) => {
             password: typeof password === 'string' && password.length > 0 ? password : undefined,
         });
 
-        return res.status(201).json(token);
+        const accessToken = generateAccessToken(token, parseInt(game));
+
+        return res.status(201).json({ token, accessToken });
     } catch (err) {
         res.status(500).json({ error: 'Internal server error', errorDetails: err });
         return next(err);
@@ -96,22 +99,20 @@ lobbiesRouter.get('/:game/visibles', async (req, res, next) => {
 });
 
 
-lobbiesRouter.delete('/:game/:token', async (req, res, next) => {
-    const { game, token } = req.params;
-    if (!game || !token) {
-        return res.status(400).json({ error: 'Missing game or token' });
-    }
+lobbiesRouter.delete('/', async (req, res, next) => {
+    const { accessToken } = req.body;
 
-    if (parseInt(game) <= 0 || isNaN(parseInt(game))) {
-        return res.status(400).json({ error: 'Invalid game id' });
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.length === 0) {
+        return res.status(400).json({ error: 'Missing access token' });
     }
-
     try {
+        const { game, token } = extractAccessToken(accessToken);
+
         const lobby = await dataSource.getRepository(Lobby).findOne({
             where: {
                 token,
                 game: {
-                    id: +game
+                    id: game
                 }
             },
         })
@@ -123,7 +124,7 @@ lobbiesRouter.delete('/:game/:token', async (req, res, next) => {
         dataSource.getRepository(Lobby).delete({
             token,
             game: {
-                id: +game
+                id: game
             }
         })
 
@@ -166,16 +167,11 @@ lobbiesRouter.get('/:game/:token', async (req, res, next) => {
     }
 });
 
-lobbiesRouter.put('/:game/:token/players', async (req, res, next) => {
-    const { game, token } = req.params;
-    const { playersCount } = req.body;
+lobbiesRouter.put('/players', async (req, res, next) => {
+    const { playersCount, accessToken } = req.body;
 
-    if (!game || !token) {
-        return res.status(400).json({ error: 'Missing game or token' });
-    }
-
-    if (parseInt(game) <= 0 || isNaN(parseInt(game))) {
-        return res.status(400).json({ error: 'Invalid game id' });
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.length === 0) {
+        return res.status(400).json({ error: 'Missing access token' });
     }
 
     if (typeof playersCount !== 'number' || isNaN(playersCount)) {
@@ -183,11 +179,13 @@ lobbiesRouter.put('/:game/:token/players', async (req, res, next) => {
     }
 
     try {
+        const { game, token } = extractAccessToken(accessToken);
+
         const lobby = await dataSource.getRepository(Lobby).findOne({
             where: {
                 token,
                 game: {
-                    id: +game
+                    id: game
                 }
             },
         })

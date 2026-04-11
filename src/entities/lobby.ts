@@ -27,4 +27,7 @@ export class Lobby {
 
     @Column('varchar', { length: 255, nullable: true })
     password?: string;
+
+    @Column('varchar', { length: 255 })
+    accessToken!: string;
 }

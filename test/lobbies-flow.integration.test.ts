@@ -3,8 +3,11 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import { createFakeLobbyDataSource } from "./fake-lobby-data-source";
+import { decodeAccessPayload, registerJwtTestMock } from "./jwt-test-mock";
 
 global.requestStats = { httpRequestsTotal: 0, lobbiesRequestsTotal: 0 };
+
+registerJwtTestMock();
 
 const fake = createFakeLobbyDataSource();
 
@@ -37,28 +40,53 @@ const flow = {
     tokenA: "",
     tokenB: "",
     tokenB2: "",
-    /** Visible lobby with password (client-provided opaque string); excluded from quick-play. */
     tokenPwd: "",
+    accessA: "",
+    accessB: "",
+    accessB2: "",
+    accessPwd: "",
 };
 
 function lobbyPath(suffix: string): string {
     return `${flow.base}/lobbies/${flow.gameId}${suffix}`;
 }
 
+function lobbiesRoot(): string {
+    return `${flow.base}/lobbies`;
+}
+
 async function postLobby(body: {
     webRTCId: string;
     visible?: boolean;
     playersCount?: number;
-    /** Pre-hashed or opaque secret; server stores as-is. */
     password?: string;
-}): Promise<{ res: Response; token: string | null }> {
+}): Promise<{ res: Response; token: string | null; accessToken: string | null }> {
     const res = await fetch(lobbyPath(""), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
-    const token = res.status === 201 ? ((await res.json()) as string) : null;
-    return { res, token };
+    if (res.status !== 201) {
+        return { res, token: null, accessToken: null };
+    }
+    const json = (await res.json()) as { token?: string; accessToken?: string };
+    return { res, token: json.token ?? null, accessToken: json.accessToken ?? null };
+}
+
+function putPlayers(accessToken: string, playersCount: number): Promise<Response> {
+    return fetch(`${lobbiesRoot()}/players`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken, playersCount }),
+    });
+}
+
+function deleteLobby(accessToken: string): Promise<Response> {
+    return fetch(`${lobbiesRoot()}/`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken }),
+    });
 }
 
 describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
@@ -87,8 +115,11 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
     test("01 Session A: create visible lobby (5 players)", async () => {
         console.log("— 01 Session A: create visible lobby (5 players) —");
         const a1 = await postLobby({ webRTCId: "rtc-host-a", visible: true, playersCount: 5 });
-        check("POST create A", a1.res.status === 201 && Boolean(a1.token), `token=${a1.token}`);
+        check("POST create A", a1.res.status === 201 && Boolean(a1.token) && Boolean(a1.accessToken), `token=${a1.token}`);
         flow.tokenA = a1.token!;
+        flow.accessA = a1.accessToken!;
+        const claims = decodeAccessPayload(flow.accessA);
+        check("accessToken embeds lobby token + game", claims.token === flow.tokenA && claims.game === flow.gameId);
     });
 
     test("01b Visible lobby with password (lower playersCount — must not win quick-play)", async () => {
@@ -100,8 +131,13 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
             playersCount: 1,
             password: HASH,
         });
-        check("POST create password lobby", p1.res.status === 201 && Boolean(p1.token), `token=${p1.token}`);
+        check(
+            "POST create password lobby",
+            p1.res.status === 201 && Boolean(p1.token) && Boolean(p1.accessToken),
+            `token=${p1.token}`,
+        );
         flow.tokenPwd = p1.token!;
+        flow.accessPwd = p1.accessToken!;
     });
 
     test("02 Session B: create hidden lobby", async () => {
@@ -111,8 +147,9 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
             visible: false,
             playersCount: 1,
         });
-        check("POST create B (hidden)", b1.res.status === 201 && Boolean(b1.token), `token=${b1.token}`);
+        check("POST create B (hidden)", b1.res.status === 201 && Boolean(b1.token) && Boolean(b1.accessToken));
         flow.tokenB = b1.token!;
+        flow.accessB = b1.accessToken!;
     });
 
     test("03 GET visibles: public lobbies + password field; never hidden B", async () => {
@@ -166,13 +203,9 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         check("webRTCId", body.webRTCId === "rtc-host-pwd");
     });
 
-    test("06 PUT A playersCount → 2", async () => {
+    test("06 PUT A playersCount → 2 (access token)", async () => {
         console.log("\n— 06 Session A: lower players count —");
-        const put1 = await fetch(lobbyPath(`/${flow.tokenA}/players`), {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playersCount: 2 }),
-        });
+        const put1 = await putPlayers(flow.accessA, 2);
         check("PUT players → 2", put1.status === 200);
     });
 
@@ -202,8 +235,9 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
     test("09 Session B: second lobby, visible (higher players)", async () => {
         console.log("\n— 09 Session B: visible lobby B2 —");
         const b2 = await postLobby({ webRTCId: "rtc-host-b2", visible: true, playersCount: 6 });
-        check("POST B2 visible", b2.res.status === 201 && Boolean(b2.token));
+        check("POST B2 visible", b2.res.status === 201 && Boolean(b2.token) && Boolean(b2.accessToken));
         flow.tokenB2 = b2.token!;
+        flow.accessB2 = b2.accessToken!;
     });
 
     test("10 quick-play prefers lowest playersCount (A vs B2)", async () => {
@@ -216,11 +250,7 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
 
     test("11 PUT A playersCount → 9 so B2 becomes best target", async () => {
         console.log("\n— 11 Raise A’s count —");
-        const put2 = await fetch(lobbyPath(`/${flow.tokenA}/players`), {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playersCount: 9 }),
-        });
+        const put2 = await putPlayers(flow.accessA, 9);
         check("PUT A players → 9", put2.status === 200);
     });
 
@@ -241,13 +271,13 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         check("visibles still omits hidden B", !tokens2.has(flow.tokenB));
     });
 
-    test("14 DELETE visible lobbies A, B2, and password lobby", async () => {
+    test("14 DELETE visible lobbies A, B2, and password lobby (access tokens)", async () => {
         console.log("\n— 14 Tear down visible lobbies —");
-        const delA = await fetch(lobbyPath(`/${flow.tokenA}`), { method: "DELETE" });
+        const delA = await deleteLobby(flow.accessA);
         check("DELETE A", delA.status === 200);
-        const delB2 = await fetch(lobbyPath(`/${flow.tokenB2}`), { method: "DELETE" });
+        const delB2 = await deleteLobby(flow.accessB2);
         check("DELETE B2", delB2.status === 200);
-        const delPwd = await fetch(lobbyPath(`/${flow.tokenPwd}`), { method: "DELETE" });
+        const delPwd = await deleteLobby(flow.accessPwd);
         check("DELETE password lobby", delPwd.status === 200);
     });
 
@@ -268,7 +298,7 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         console.log("\n— 17 Hidden B still retrievable; cleanup —");
         const getBStill = await fetch(lobbyPath(`/${flow.tokenB}`));
         check("GET hidden B still 200", getBStill.status === 200);
-        const delB = await fetch(lobbyPath(`/${flow.tokenB}`), { method: "DELETE" });
+        const delB = await deleteLobby(flow.accessB);
         check("DELETE B", delB.status === 200);
     });
 });
