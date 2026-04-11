@@ -2,7 +2,7 @@
     "scripts": {
         "test": "bun test",
         "dev": "bun --hot src/server.ts",
-        "build": "mkdir -p build; bun build src/server.ts --target=bun --outfile build/server.js; cp -r public build/public; cp generate-key.sh build/generate-key.sh",
+        "build": "mkdir -p build; bun build src/server.ts --target=bun --outfile build/server.js; cp -r public build/public; cp run.sh build/run.sh",
         "generate": "bash generate-key.sh",
         "start": "bun build/server.js"
     },
