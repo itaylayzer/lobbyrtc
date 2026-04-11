@@ -51,9 +51,9 @@ Promise.all([keyPromise, dataSource.initialize()]).then(() => {
     try {
         app.use(cors({ origin: '*' }))
         app.use(express.json());
-        app.use(loggingMiddleware);
         app.use(trackingMiddleware('httpRequestsTotal'));
         app.use("/sys", sysRouter);
+        app.use(loggingMiddleware);
         app.use("/peer", createPeerApp(server));
         app.use("/lobbies", lobbiesRouter);
         app.use(errorMiddleware);
