@@ -14,6 +14,7 @@ declare global {
 
     var requestStats: {
         httpRequestsTotal: number;
+        lobbiesRequestsTotal: number;
     };
 
     var logger: Logger;

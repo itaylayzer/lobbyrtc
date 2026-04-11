@@ -10,6 +10,7 @@ global.readiness = {
 
 global.requestStats = {
     httpRequestsTotal: 0,
+    lobbiesRequestsTotal: 0,
 };
 
 global.logger = webLogger;

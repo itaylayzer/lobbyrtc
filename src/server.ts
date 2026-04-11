@@ -41,7 +41,7 @@ dataSource.initialize().then(() => {
         app.use(cors({ origin: '*' }))
         app.use(express.json());
         app.use(loggingMiddleware);
-        app.use(trackingMiddleware);
+        app.use(trackingMiddleware('httpRequestsTotal'));
         app.use("/sys", sysRouter);
         app.use("/peer", createPeerApp(server));
         app.use("/lobbies", lobbiesRouter);

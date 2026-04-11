@@ -4,6 +4,8 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { createFakeLobbyDataSource } from "./fake-lobby-data-source";
 
+global.requestStats = { httpRequestsTotal: 0, lobbiesRequestsTotal: 0 };
+
 const fake = createFakeLobbyDataSource();
 
 mock.module("@/data-source", () => ({
@@ -35,6 +37,8 @@ const flow = {
     tokenA: "",
     tokenB: "",
     tokenB2: "",
+    /** Visible lobby with password (client-provided opaque string); excluded from quick-play. */
+    tokenPwd: "",
 };
 
 function lobbyPath(suffix: string): string {
@@ -45,6 +49,8 @@ async function postLobby(body: {
     webRTCId: string;
     visible?: boolean;
     playersCount?: number;
+    /** Pre-hashed or opaque secret; server stores as-is. */
+    password?: string;
 }): Promise<{ res: Response; token: string | null }> {
     const res = await fetch(lobbyPath(""), {
         method: "POST",
@@ -85,6 +91,19 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         flow.tokenA = a1.token!;
     });
 
+    test("01b Visible lobby with password (lower playersCount — must not win quick-play)", async () => {
+        console.log("\n— 01b Password-protected visible lobby (client hash stored verbatim) —");
+        const HASH = "sha256:fake-client-hash-for-tests";
+        const p1 = await postLobby({
+            webRTCId: "rtc-host-pwd",
+            visible: true,
+            playersCount: 1,
+            password: HASH,
+        });
+        check("POST create password lobby", p1.res.status === 201 && Boolean(p1.token), `token=${p1.token}`);
+        flow.tokenPwd = p1.token!;
+    });
+
     test("02 Session B: create hidden lobby", async () => {
         console.log("\n— 02 Session B: create hidden lobby —");
         const b1 = await postLobby({
@@ -96,34 +115,55 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         flow.tokenB = b1.token!;
     });
 
-    test("03 GET visibles: only public lobbies, never hidden B", async () => {
-        console.log("\n— 03 Visibles: must include only public lobbies —");
+    test("03 GET visibles: public lobbies + password field; never hidden B", async () => {
+        console.log("\n— 03 Visibles: public only; password echoed for client UX —");
         const vis1 = await fetch(lobbyPath("/visibles"));
         check("GET visibles status", vis1.status === 200);
-        const list1 = (await vis1.json()) as Array<{ token: string; webRTCId: string; playersCount: number }>;
-        check("visibles length is 1 (only A)", list1.length === 1);
+        const list1 = (await vis1.json()) as Array<{
+            token: string;
+            webRTCId: string;
+            playersCount: number;
+            password?: string | null;
+        }>;
+        check("visibles length is 2 (A + password lobby)", list1.length === 2);
         check("visibles contains A", list1.some((l) => l.token === flow.tokenA));
+        check("visibles contains password lobby", list1.some((l) => l.token === flow.tokenPwd));
         check("visibles does NOT contain hidden B", !list1.some((l) => l.token === flow.tokenB));
         for (const row of list1) {
-            check(`row ${row.token} has fields`, "webRTCId" in row && "playersCount" in row);
+            check(`row ${row.token} has fields`, "webRTCId" in row && "playersCount" in row && "password" in row);
         }
+        const rowA = list1.find((l) => l.token === flow.tokenA)!;
+        const rowP = list1.find((l) => l.token === flow.tokenPwd)!;
+        check("open lobby has no/falsy password in list", !rowA.password);
+        check("password lobby exposes stored string", rowP.password === "sha256:fake-client-hash-for-tests");
     });
 
     test("04 GET lobby A by token", async () => {
         console.log("\n— 04 Fetch lobby A by token —");
         const getA = await fetch(lobbyPath(`/${flow.tokenA}`));
         check("GET A", getA.status === 200);
-        const bodyA = (await getA.json()) as { webRTCId: string; playersCount: number };
+        const bodyA = (await getA.json()) as { webRTCId: string; playersCount: number; password?: string };
         check("A webRTCId", bodyA.webRTCId === "rtc-host-a");
         check("A playersCount", bodyA.playersCount === 5);
+        check("A has no password in GET body", bodyA.password == null || bodyA.password === "");
     });
 
     test("05 GET hidden lobby B by token (direct link still works)", async () => {
         console.log("\n— 05 Fetch hidden B by token —");
         const getB = await fetch(lobbyPath(`/${flow.tokenB}`));
         check("GET hidden B by token still works", getB.status === 200);
-        const bodyB = (await getB.json()) as { webRTCId: string; playersCount: number };
+        const bodyB = (await getB.json()) as { webRTCId: string; playersCount: number; password?: string };
         check("B webRTCId", bodyB.webRTCId === "rtc-host-b");
+        check("B has no password", bodyB.password == null || bodyB.password === "");
+    });
+
+    test("05b GET password lobby by token returns stored secret", async () => {
+        console.log("\n— 05b GET password lobby —");
+        const res = await fetch(lobbyPath(`/${flow.tokenPwd}`));
+        check("GET password lobby", res.status === 200);
+        const body = (await res.json()) as { password?: string; webRTCId: string };
+        check("password echoed as stored", body.password === "sha256:fake-client-hash-for-tests");
+        check("webRTCId", body.webRTCId === "rtc-host-pwd");
     });
 
     test("06 PUT A playersCount → 2", async () => {
@@ -145,14 +185,16 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
 
     for (let i = 0; i < 8; i++) {
         const n = i + 1;
-        test(`08.${n} quick-play #${n}: only visible A, never hidden B`, async () => {
-            if (n === 1) console.log("\n— 08 Quick-play (8×): visible only, lowest-count pool —");
+        test(`08.${n} quick-play #${n}: only open visible A, never B or password lobby`, async () => {
+            if (n === 1) console.log("\n— 08 Quick-play (8×): no hidden, no password lobbies —");
             const qp = await fetch(lobbyPath("/quick-play"));
             check(`quick-play #${n} status 200`, qp.status === 200);
             const qpBody = (await qp.json()) as { token: string; webRTCId: string; playersCount: number };
             check(
-                `quick-play #${n} is A, not B`,
-                qpBody.token === flow.tokenA && qpBody.token !== flow.tokenB,
+                `quick-play #${n} is A only`,
+                qpBody.token === flow.tokenA &&
+                    qpBody.token !== flow.tokenB &&
+                    qpBody.token !== flow.tokenPwd,
             );
         });
     }
@@ -190,21 +232,23 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         check("picked B2", pick.token === flow.tokenB2);
     });
 
-    test("13 GET visibles: A and B2 present, hidden B absent", async () => {
+    test("13 GET visibles: A, B2, password lobby; hidden B absent", async () => {
         console.log("\n— 13 Visibles still omit hidden B —");
         const vis2 = await fetch(lobbyPath("/visibles"));
         const list2 = (await vis2.json()) as Array<{ token: string }>;
         const tokens2 = new Set(list2.map((l) => l.token));
-        check("visibles has A and B2", tokens2.has(flow.tokenA) && tokens2.has(flow.tokenB2));
+        check("visibles has A, B2, password lobby", tokens2.has(flow.tokenA) && tokens2.has(flow.tokenB2) && tokens2.has(flow.tokenPwd));
         check("visibles still omits hidden B", !tokens2.has(flow.tokenB));
     });
 
-    test("14 DELETE visible lobbies A and B2", async () => {
+    test("14 DELETE visible lobbies A, B2, and password lobby", async () => {
         console.log("\n— 14 Tear down visible lobbies —");
         const delA = await fetch(lobbyPath(`/${flow.tokenA}`), { method: "DELETE" });
         check("DELETE A", delA.status === 200);
         const delB2 = await fetch(lobbyPath(`/${flow.tokenB2}`), { method: "DELETE" });
         check("DELETE B2", delB2.status === 200);
+        const delPwd = await fetch(lobbyPath(`/${flow.tokenPwd}`), { method: "DELETE" });
+        check("DELETE password lobby", delPwd.status === 200);
     });
 
     test("15 GET visibles empty; only hidden B remains", async () => {

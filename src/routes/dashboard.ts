@@ -26,6 +26,7 @@ dashboardRouter.get("/api/overview", async (_req, res, next) => {
             },
             usage: {
                 httpRequestsTotal: global.requestStats.httpRequestsTotal,
+                lobbiesRequestsTotal: global.requestStats.lobbiesRequestsTotal,
             },
             games: games.map((g) => ({
                 id: g.id,

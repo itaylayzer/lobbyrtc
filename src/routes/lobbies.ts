@@ -1,14 +1,16 @@
 import { dataSource } from "@/data-source";
 import { Lobby } from "@/entities/lobby";
+import { trackingMiddleware } from "@/middlewares/tracking";
 import { arrayShuffle } from "@/utils/arrayShuffle";
 import { generateToken } from "@/utils/generateToken";
 import { Router } from "express";
 
 export const lobbiesRouter = Router();
+lobbiesRouter.use(trackingMiddleware('lobbiesRequestsTotal'));
 
 lobbiesRouter.post('/:game', async (req, res, next) => {
     const { game } = req.params;
-    const { webRTCId, visible, playersCount } = req.body;
+    const { webRTCId, visible, playersCount, password } = req.body;
 
     if (parseInt(game) <= 0 || isNaN(parseInt(game))) {
         return res.status(400).json({ error: 'Invalid game id' });
@@ -31,7 +33,8 @@ lobbiesRouter.post('/:game', async (req, res, next) => {
             game: { id: parseInt(game) },
             visible: visible !== false,
             webRTCId: webRTCId,
-            playersCount: initialPlayers
+            playersCount: initialPlayers,
+            password: typeof password === 'string' && password.length > 0 ? password : undefined,
         });
 
         return res.status(201).json(token);
@@ -51,7 +54,7 @@ lobbiesRouter.get('/:game/quick-play', async (req, res, next) => {
 
     try {
         const list = await dataSource.getRepository(Lobby).find({
-            where: { game: { id: +game }, visible: true },
+            where: { game: { id: +game }, visible: true, password: undefined },
         });
         if (list.length === 0) {
             return res.status(404).json({ error: 'No visible lobbies' });
@@ -82,7 +85,7 @@ lobbiesRouter.get('/:game/visibles', async (req, res, next) => {
     }
 
     try {
-        const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, select: ['token', 'playersCount', 'webRTCId'] })
+        const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, select: ['token', 'playersCount', 'webRTCId', 'password'] })
 
         return res.status(200).json(list);
     } catch (err) {
@@ -156,7 +159,7 @@ lobbiesRouter.get('/:game/:token', async (req, res, next) => {
             return res.status(404).json({ error: 'Lobby not found' });
         }
 
-        return res.status(200).json({ webRTCId: lobby.webRTCId, playersCount: lobby.playersCount });
+        return res.status(200).json({ webRTCId: lobby.webRTCId, playersCount: lobby.playersCount, password: lobby.password });
     } catch (err) {
         res.status(500).json({ error: 'Internal server error', errorDetails: err });
         return next(err);

@@ -14,7 +14,9 @@
                 --accent: #3d8bfd;
                 --ok: #3fb950;
                 --err: #f85149;
-                --mono: "ui-monospace", "Cascadia Code", "SF Mono", Consolas, monospace;
+                --mono:
+                    "ui-monospace", "Cascadia Code", "SF Mono", Consolas,
+                    monospace;
             }
             * {
                 box-sizing: border-box;
@@ -22,7 +24,12 @@
             body {
                 margin: 0;
                 min-height: 100vh;
-                font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    "Segoe UI",
+                    Roboto,
+                    sans-serif;
                 font-size: 14px;
                 line-height: 1.5;
                 color: var(--text);
@@ -156,10 +163,12 @@
         <div class="wrap">
             <h1>LobbyRTC debug client</h1>
             <p class="lead">
-                Two PeerJS connections in one tab: <strong>host</strong> registers the lobby;
-                <strong>joiner</strong> opens a data connection to the host’s Peer id from the lobby record.
-                Serve this file from the same origin as the API or expect CORS to block <code>fetch</code> (default API base
-                below).
+                Two PeerJS connections in one tab:
+                <strong>host</strong> registers the lobby;
+                <strong>joiner</strong> opens a data connection to the host’s
+                Peer id from the lobby record. Serve this file from the same
+                origin as the API or expect CORS to block
+                <code>fetch</code> (default API base below).
             </p>
 
             <div class="panel">
@@ -174,12 +183,22 @@
                     </label>
                 </div>
                 <div class="btns">
-                    <button type="button" class="primary" id="btnRun">Create lobby + connect peers</button>
+                    <button type="button" class="primary" id="btnRun">
+                        Create lobby + connect peers
+                    </button>
                     <button type="button" id="btnCleanup">Destroy peers</button>
-                    <button type="button" class="danger" id="btnDeleteLobby" disabled>DELETE lobby</button>
+                    <button
+                        type="button"
+                        class="danger"
+                        id="btnDeleteLobby"
+                        disabled
+                    >
+                        DELETE lobby
+                    </button>
                 </div>
                 <div class="status" id="status">
-                    Host peer: <strong>—</strong> · Joiner peer: <strong>—</strong> · Token:
+                    Host peer: <strong>—</strong> · Joiner peer:
+                    <strong>—</strong> · Token:
                     <strong>—</strong>
                 </div>
             </div>
@@ -202,7 +221,10 @@
                 const $status = document.getElementById("status");
 
                 function defaultApiBase() {
-                    if (location.protocol === "http:" || location.protocol === "https:") {
+                    if (
+                        location.protocol === "http:" ||
+                        location.protocol === "https:"
+                    ) {
                         return location.origin;
                     }
                     return "http://127.0.0.1:8080";
@@ -218,7 +240,8 @@
                 function log(msg, cls) {
                     const line = document.createElement("div");
                     if (cls) line.className = cls;
-                    line.textContent = new Date().toISOString().slice(11, 23) + " " + msg;
+                    line.textContent =
+                        new Date().toISOString().slice(11, 23) + " " + msg;
                     $log.appendChild(line);
                     $log.scrollTop = $log.scrollHeight;
                 }
@@ -236,7 +259,11 @@
 
                 function peerOptionsFromApiBase(apiBase) {
                     const u = new URL(apiBase);
-                    const port = u.port ? parseInt(u.port, 10) : u.protocol === "https:" ? 443 : 80;
+                    const port = u.port
+                        ? parseInt(u.port, 10)
+                        : u.protocol === "https:"
+                          ? 443
+                          : 80;
                     return {
                         host: u.hostname,
                         port: port,
@@ -291,16 +318,31 @@
                     if (!lastToken || lastGameId == null) return;
                     const base = $apiBase.value.trim().replace(/\/$/, "");
                     try {
-                        const res = await fetch(base + "/lobbies/" + lastGameId + "/" + encodeURIComponent(lastToken), {
-                            method: "DELETE",
-                        });
+                        const res = await fetch(
+                            base +
+                                "/lobbies/" +
+                                lastGameId +
+                                "/" +
+                                encodeURIComponent(lastToken),
+                            {
+                                method: "DELETE",
+                            },
+                        );
                         if (!res.ok) throw new Error("DELETE " + res.status);
                         log("Lobby deleted.", "log-ok");
                         lastToken = null;
                         $btnDelete.disabled = true;
-                        setStatus(hostPeer && hostPeer.id, joinPeer && joinPeer.id, null);
+                        setStatus(
+                            hostPeer && hostPeer.id,
+                            joinPeer && joinPeer.id,
+                            null,
+                        );
                     } catch (e) {
-                        log("DELETE failed: " + (e && e.message ? e.message : e), "log-err");
+                        log(
+                            "DELETE failed: " +
+                                (e && e.message ? e.message : e),
+                            "log-err",
+                        );
                     }
                 });
 
@@ -327,29 +369,40 @@
 
                     try {
                         destroyPeers();
-                        log("API: " + apiBase + " · Peer path: " + PEER_PATH, "log-muted");
+                        log(
+                            "API: " + apiBase + " · Peer path: " + PEER_PATH,
+                            "log-muted",
+                        );
 
                         log("Opening host Peer…");
                         const host = await openPeer("Host Peer", peerOpts);
                         hostPeer = host.peer;
 
                         log("POST lobby (webRTCId = host id)…");
-                        const postRes = await fetch(apiBase + "/lobbies/" + gameId, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                webRTCId: host.id,
-                                visible: true,
-                                playersCount: 1,
-                            }),
-                        });
+                        const postRes = await fetch(
+                            apiBase + "/lobbies/" + gameId,
+                            {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    webRTCId: host.id,
+                                    visible: true,
+                                    playersCount: 1,
+                                }),
+                            },
+                        );
                         if (!postRes.ok) {
                             const t = await postRes.text();
-                            throw new Error("POST lobby " + postRes.status + " " + t);
+                            throw new Error(
+                                "POST lobby " + postRes.status + " " + t,
+                            );
                         }
                         const token = await postRes.json();
                         if (typeof token !== "string") {
-                            throw new Error("Expected token string, got: " + JSON.stringify(token));
+                            throw new Error(
+                                "Expected token string, got: " +
+                                    JSON.stringify(token),
+                            );
                         }
                         lastToken = token;
                         $btnDelete.disabled = false;
@@ -361,20 +414,34 @@
                         setStatus(host.id, join.id, lastToken);
 
                         log("GET lobby by token…");
-                        const getRes = await fetch(apiBase + "/lobbies/" + gameId + "/" + encodeURIComponent(token));
+                        const getRes = await fetch(
+                            apiBase +
+                                "/lobbies/" +
+                                gameId +
+                                "/" +
+                                encodeURIComponent(token),
+                        );
                         if (!getRes.ok) {
                             const t = await getRes.text();
-                            throw new Error("GET lobby " + getRes.status + " " + t);
+                            throw new Error(
+                                "GET lobby " + getRes.status + " " + t,
+                            );
                         }
                         const lobby = await getRes.json();
                         const remoteId = lobby.webRTCId;
                         log("Lobby webRTCId (host): " + remoteId, "log-muted");
                         if (remoteId !== host.id) {
-                            log("Warning: lobby webRTCId !== host peer id", "log-err");
+                            log(
+                                "Warning: lobby webRTCId !== host peer id",
+                                "log-err",
+                            );
                         }
 
                         hostPeer.on("connection", function (conn) {
-                            log("Host: incoming connection from " + conn.peer, "log-ok");
+                            log(
+                                "Host: incoming connection from " + conn.peer,
+                                "log-ok",
+                            );
                             conn.on("data", function (data) {
                                 log("Host ← data: " + data, "log-ok");
                                 try {
@@ -382,29 +449,51 @@
                                 } catch (e) {}
                             });
                             conn.on("open", function () {
-                                log("Host: data channel open (incoming)", "log-muted");
+                                log(
+                                    "Host: data channel open (incoming)",
+                                    "log-muted",
+                                );
                             });
                             conn.on("error", function (e) {
-                                log("Host conn error: " + (e && e.message ? e.message : e), "log-err");
+                                log(
+                                    "Host conn error: " +
+                                        (e && e.message ? e.message : e),
+                                    "log-err",
+                                );
                             });
                         });
 
                         log("Joiner: connect data to " + remoteId + "…");
-                        const conn = joinPeer.connect(remoteId, { reliable: true });
+                        const conn = joinPeer.connect(remoteId, {
+                            reliable: true,
+                        });
                         conn.on("open", function () {
-                            log("Joiner: data channel open → send ping", "log-ok");
+                            log(
+                                "Joiner: data channel open → send ping",
+                                "log-ok",
+                            );
                             conn.send("joiner-ping");
                         });
                         conn.on("data", function (data) {
                             log("Joiner ← data: " + data, "log-ok");
                         });
                         conn.on("error", function (e) {
-                            log("Joiner conn error: " + (e && e.message ? e.message : e), "log-err");
+                            log(
+                                "Joiner conn error: " +
+                                    (e && e.message ? e.message : e),
+                                "log-err",
+                            );
                         });
 
-                        log("Flow finished (watch for ping/pong above).", "log-ok");
+                        log(
+                            "Flow finished (watch for ping/pong above).",
+                            "log-ok",
+                        );
                     } catch (e) {
-                        log("Error: " + (e && e.message ? e.message : e), "log-err");
+                        log(
+                            "Error: " + (e && e.message ? e.message : e),
+                            "log-err",
+                        );
                         destroyPeers();
                         lastToken = null;
                         $btnDelete.disabled = true;

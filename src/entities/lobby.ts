@@ -24,4 +24,7 @@ export class Lobby {
 
     @UpdateDateColumn()
     updateAt!: Date;
+
+    @Column('varchar', { length: 255, nullable: true })
+    password?: string;
 }

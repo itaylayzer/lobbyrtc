@@ -4,9 +4,110 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>LobbyRTC — Dashboard</title>
+        <script>
+            (function () {
+                try {
+                    var k = "lobbyrtc-dashboard-theme";
+                    var s = localStorage.getItem(k);
+                    if (s === "light") {
+                        document.documentElement.dataset.theme = "light";
+                    } else {
+                        document.documentElement.removeAttribute("data-theme");
+                    }
+                } catch (e) {
+                    document.documentElement.removeAttribute("data-theme");
+                }
+            })();
+        </script>
         <style>
             * {
                 box-sizing: border-box;
+            }
+
+            html {
+                --bg-page: #0d1117;
+                --text: #e6edf3;
+                --text-muted: #8b949e;
+                --text-sub: #8b949e;
+                --border-header: #30363d;
+                --bg-card: #161b22;
+                --border-card: #30363d;
+                --card-h3: #8b949e;
+                --pill-border: #30363d;
+                --pill-bg: #21262d;
+                --pill-text: #adbac7;
+                --pill-ok-border: #238636;
+                --pill-ok-bg: rgba(46, 160, 67, 0.18);
+                --pill-ok-text: #3fb950;
+                --pill-bad-border: #da3633;
+                --pill-bad-bg: rgba(248, 81, 73, 0.18);
+                --pill-bad-text: #ff7b72;
+                --panel-bg: #161b22;
+                --panel-border: #30363d;
+                --toolbar-bg: #21262d;
+                --toolbar-border: #30363d;
+                --field-label: #adbac7;
+                --input-bg: #0d1117;
+                --input-border: #30363d;
+                --input-text: #e6edf3;
+                --input-focus: #58a6ff;
+                --table-row-border: #30363d;
+                --th-bg: #21262d;
+                --th-border: #30363d;
+                --th-text: #adbac7;
+                --tr-hover: #1c2128;
+                --error-bg: #3d2020;
+                --error-border: #da3633;
+                --error-text: #ffb1ad;
+                --switch-track: #30363d;
+                --switch-track-on: #388bfd;
+                --switch-thumb: #e6edf3;
+                --switch-border: #484f58;
+                --code-color: #79c0ff;
+                --live-dot-idle: #8b949e;
+            }
+
+            html[data-theme="light"] {
+                --bg-page: #e8e8e8;
+                --text: #222;
+                --text-muted: #555;
+                --text-sub: #666;
+                --border-header: #bbb;
+                --bg-card: #fff;
+                --border-card: #aaa;
+                --card-h3: #555;
+                --pill-border: #ccc;
+                --pill-bg: #f7f7f7;
+                --pill-text: #333;
+                --pill-ok-border: #2d7a4d;
+                --pill-ok-bg: #e6f7eb;
+                --pill-ok-text: #1a5c2e;
+                --pill-bad-border: #cf222e;
+                --pill-bad-bg: #ffe8e8;
+                --pill-bad-text: #a40e26;
+                --panel-bg: #fff;
+                --panel-border: #aaa;
+                --toolbar-bg: #f2f2f2;
+                --toolbar-border: #ccc;
+                --field-label: #444;
+                --input-bg: #fff;
+                --input-border: #999;
+                --input-text: #222;
+                --input-focus: #333;
+                --table-row-border: #ddd;
+                --th-bg: #f0f0f0;
+                --th-border: #bbb;
+                --th-text: #444;
+                --tr-hover: #f9f9f9;
+                --error-bg: #fdd;
+                --error-border: #c00;
+                --error-text: #600;
+                --switch-track: #c8c8c8;
+                --switch-track-on: #6e7781;
+                --switch-thumb: #fff;
+                --switch-border: #999;
+                --code-color: #0550ae;
+                --live-dot-idle: #888;
             }
 
             body {
@@ -20,8 +121,8 @@
                     sans-serif;
                 font-size: 14px;
                 line-height: 1.45;
-                color: #222;
-                background: #e8e8e8;
+                color: var(--text);
+                background: var(--bg-page);
             }
 
             .wrap {
@@ -38,19 +139,91 @@
                 gap: 0.75rem;
                 margin-bottom: 1.25rem;
                 padding-bottom: 0.75rem;
-                border-bottom: 1px solid #bbb;
+                border-bottom: 1px solid var(--border-header);
             }
 
             header h1 {
                 margin: 0;
                 font-size: 1.35rem;
                 font-weight: 600;
+                color: var(--text);
             }
 
             header p {
                 margin: 0.2rem 0 0;
-                color: #555;
+                color: var(--text-muted);
                 font-size: 0.9rem;
+            }
+
+            .header-right {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .theme-switch {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                cursor: pointer;
+                font-size: 0.78rem;
+                font-weight: 500;
+                color: var(--text-muted);
+                user-select: none;
+            }
+
+            .theme-switch-caps {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+            }
+
+            .theme-switch-track {
+                position: relative;
+                width: 2.35rem;
+                height: 1.28rem;
+                border-radius: 999px;
+                background: var(--switch-track);
+                border: 1px solid var(--switch-border);
+                flex-shrink: 0;
+                transition: background 0.15s ease;
+            }
+
+            .theme-switch-thumb {
+                position: absolute;
+                top: 50%;
+                left: 0.1rem;
+                width: 1rem;
+                height: 1rem;
+                border-radius: 50%;
+                background: var(--switch-thumb);
+                transform: translateY(-50%);
+                transition:
+                    left 0.15s ease,
+                    transform 0.15s ease;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            }
+
+            .theme-switch input {
+                position: absolute;
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .theme-switch input:focus-visible + .theme-switch-track {
+                outline: 2px solid var(--input-focus);
+                outline-offset: 2px;
+            }
+
+            .theme-switch input:checked + .theme-switch-track {
+                background: var(--switch-track-on);
+            }
+
+            .theme-switch input:checked + .theme-switch-track .theme-switch-thumb {
+                left: calc(100% - 1rem - 0.1rem);
             }
 
             .live {
@@ -58,18 +231,22 @@
                 align-items: center;
                 gap: 0.4rem;
                 font-size: 0.85rem;
-                color: #555;
+                color: var(--text-muted);
             }
 
             .live-dot {
                 width: 7px;
                 height: 7px;
                 border-radius: 50%;
-                background: #333;
+                background: var(--live-dot-idle);
             }
 
-            .live-dot.err {
-                background: #c00;
+            .live-dot.live-dot-ok {
+                background: #22863a;
+            }
+
+            .live-dot.live-dot-err {
+                background: #cf222e;
             }
 
             .grid-cards {
@@ -80,8 +257,8 @@
             }
 
             .card {
-                background: #fff;
-                border: 1px solid #aaa;
+                background: var(--bg-card);
+                border: 1px solid var(--border-card);
                 padding: 0.75rem 0.9rem;
             }
 
@@ -89,7 +266,7 @@
                 margin: 0 0 0.25rem;
                 font-size: 0.75rem;
                 font-weight: 600;
-                color: #555;
+                color: var(--card-h3);
             }
 
             .card .val {
@@ -101,7 +278,12 @@
             .card .sub {
                 margin-top: 0.25rem;
                 font-size: 0.8rem;
-                color: #666;
+                color: var(--text-sub);
+            }
+
+            .card .sub code {
+                font-size: 0.85em;
+                color: var(--code-color);
             }
 
             .readiness-row {
@@ -114,14 +296,21 @@
             .pill {
                 font-size: 0.75rem;
                 padding: 0.15rem 0.4rem;
-                border: 1px solid #ccc;
-                background: #f7f7f7;
-                color: #333;
+                border: 1px solid var(--pill-border);
+                background: var(--pill-bg);
+                color: var(--pill-text);
             }
 
-            .pill.bad {
-                border-color: #999;
-                color: #000;
+            .pill.pill-ok {
+                border-color: var(--pill-ok-border);
+                background: var(--pill-ok-bg);
+                color: var(--pill-ok-text);
+            }
+
+            .pill.pill-bad {
+                border-color: var(--pill-bad-border);
+                background: var(--pill-bad-bg);
+                color: var(--pill-bad-text);
             }
 
             section {
@@ -132,11 +321,12 @@
                 margin: 0 0 0.5rem;
                 font-size: 1rem;
                 font-weight: 600;
+                color: var(--text);
             }
 
             .panel {
-                background: #fff;
-                border: 1px solid #aaa;
+                background: var(--panel-bg);
+                border: 1px solid var(--panel-border);
                 overflow: hidden;
             }
 
@@ -146,8 +336,8 @@
                 gap: 0.65rem;
                 align-items: flex-end;
                 padding: 0.65rem 0.75rem;
-                border-bottom: 1px solid #ccc;
-                background: #f2f2f2;
+                border-bottom: 1px solid var(--toolbar-border);
+                background: var(--toolbar-bg);
             }
 
             label.field {
@@ -156,7 +346,7 @@
                 gap: 0.2rem;
                 font-size: 0.75rem;
                 font-weight: 500;
-                color: #444;
+                color: var(--field-label);
             }
 
             input[type="search"],
@@ -164,22 +354,22 @@
                 font-family: inherit;
                 font-size: 0.85rem;
                 padding: 0.35rem 0.5rem;
-                border: 1px solid #999;
-                background: #fff;
-                color: #222;
+                border: 1px solid var(--input-border);
+                background: var(--input-bg);
+                color: var(--input-text);
                 min-width: 160px;
             }
 
             input[type="search"]:focus,
             select:focus {
-                outline: 1px solid #333;
+                outline: 1px solid var(--input-focus);
                 outline-offset: 1px;
             }
 
             .hint {
                 margin-left: auto;
                 font-size: 0.8rem;
-                color: #555;
+                color: var(--text-muted);
             }
 
             table {
@@ -192,19 +382,19 @@
             td {
                 text-align: left;
                 padding: 0.45rem 0.75rem;
-                border-bottom: 1px solid #ddd;
+                border-bottom: 1px solid var(--table-row-border);
             }
 
             th {
                 font-size: 0.72rem;
                 font-weight: 600;
-                color: #444;
-                background: #f0f0f0;
-                border-bottom: 1px solid #bbb;
+                color: var(--th-text);
+                background: var(--th-bg);
+                border-bottom: 1px solid var(--th-border);
             }
 
             tbody tr:hover td {
-                background: #f9f9f9;
+                background: var(--tr-hover);
             }
 
             .num,
@@ -213,7 +403,7 @@
             }
 
             .muted {
-                color: #666;
+                color: var(--text-sub);
             }
 
             .tag {
@@ -231,9 +421,9 @@
                 display: none;
                 margin-bottom: 0.75rem;
                 padding: 0.6rem 0.75rem;
-                border: 1px solid #c00;
-                background: #fdd;
-                color: #600;
+                border: 1px solid var(--error-border);
+                background: var(--error-bg);
+                color: var(--error-text);
                 font-size: 0.9rem;
             }
 
@@ -256,9 +446,26 @@
                     <h1>LobbyRTC</h1>
                     <p>Live view of games, lobbies, and process health.</p>
                 </div>
-                <div class="live" id="liveStatus">
-                    <span class="live-dot" id="liveDot"></span>
-                    <span id="liveText">Connecting…</span>
+                <div class="header-right">
+                    <label class="theme-switch">
+                        <span class="theme-switch-caps">
+                            <span aria-hidden="true">Dark</span>
+                            <input
+                                type="checkbox"
+                                id="themeToggle"
+                                role="switch"
+                                aria-label="Use light theme"
+                            />
+                            <span class="theme-switch-track">
+                                <span class="theme-switch-thumb" aria-hidden="true"></span>
+                            </span>
+                            <span aria-hidden="true">Light</span>
+                        </span>
+                    </label>
+                    <div class="live" id="liveStatus">
+                        <span class="live-dot" id="liveDot"></span>
+                        <span id="liveText">Connecting…</span>
+                    </div>
                 </div>
             </header>
 
@@ -274,6 +481,11 @@
                     <h3>HTTP requests (total)</h3>
                     <div class="val" id="reqVal">—</div>
                     <div class="sub">Counted since this process started</div>
+                </div>
+                <div class="card">
+                    <h3>Lobbies HTTP requests (total)</h3>
+                    <div class="val" id="lobbiesReqVal">—</div>
+                    <div class="sub">Requests handled by <code>/lobbies</code> router</div>
                 </div>
                 <div class="card">
                     <h3>Readiness</h3>
@@ -385,6 +597,33 @@
 
                 const $ = (id) => document.getElementById(id);
 
+                const THEME_KEY = "lobbyrtc-dashboard-theme";
+
+                function syncThemeToggle() {
+                    const el = $("themeToggle");
+                    if (!el) return;
+                    const light = document.documentElement.dataset.theme === "light";
+                    el.checked = light;
+                    el.setAttribute("aria-checked", light ? "true" : "false");
+                }
+
+                const themeToggle = $("themeToggle");
+                if (themeToggle) {
+                    themeToggle.addEventListener("change", function () {
+                        const light = this.checked;
+                        if (light) {
+                            document.documentElement.dataset.theme = "light";
+                        } else {
+                            document.documentElement.removeAttribute("data-theme");
+                        }
+                        try {
+                            localStorage.setItem(THEME_KEY, light ? "light" : "dark");
+                        } catch (e) {}
+                        this.setAttribute("aria-checked", light ? "true" : "false");
+                    });
+                    syncThemeToggle();
+                }
+
                 let lastPayload = null;
 
                 function escapeHtml(s) {
@@ -432,7 +671,7 @@
                             const ok = readiness[k];
                             return (
                                 '<span class="pill' +
-                                (ok ? "" : " bad") +
+                                (ok ? " pill-ok" : " pill-bad") +
                                 '">' +
                                 escapeHtml(label) +
                                 ": " +
@@ -444,7 +683,8 @@
                     $("readinessPills").innerHTML = pills;
                     const allOk = Object.values(readiness).every(Boolean);
                     $("readyVal").textContent = allOk ? "Ready" : "Degraded";
-                    $("liveDot").className = "live-dot" + (allOk ? "" : " err");
+                    $("liveDot").className =
+                        "live-dot " + (allOk ? "live-dot-ok" : "live-dot-err");
                     $("liveText").textContent = allOk
                         ? "All subsystems ready"
                         : "Some checks failing";
@@ -625,6 +865,11 @@
                     $("reqVal").textContent = String(
                         data.usage.httpRequestsTotal,
                     );
+                    $("lobbiesReqVal").textContent =
+                        data.usage &&
+                        typeof data.usage.lobbiesRequestsTotal === "number"
+                            ? String(data.usage.lobbiesRequestsTotal)
+                            : "—";
                     renderReadiness(data.server.readiness);
                     if (data.cleaner) {
                         $("cleanerDeletedVal").textContent =
@@ -661,7 +906,7 @@
                             "Could not load overview: " +
                                 (e && e.message ? e.message : e),
                         );
-                        $("liveDot").className = "live-dot err";
+                        $("liveDot").className = "live-dot live-dot-err";
                         $("liveText").textContent = "Offline / error";
                     }
                 }
