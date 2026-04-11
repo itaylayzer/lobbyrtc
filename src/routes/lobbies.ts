@@ -64,6 +64,7 @@ lobbiesRouter.get('/:game/quick-play', async (req, res, next) => {
 
         if (canidates.length === 0) {
             if (list.length > 0) {
+                cleanerlogger.info(`quick play: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
                 cleaner.emptyLobbies(list);
             }
             return res.status(404).json({ error: 'No visible lobbies' });
