@@ -26,7 +26,7 @@ async function applyGame(game: GameJson): Promise<{ gameName: string, state: "ok
     }
 
     try {
-        await dataSource.getRepository(Game).save({ name: game.name });
+        await dataSource.getRepository(Game).save({ name: game.name, maxPlayers: game.maxPlayers ?? undefined });
 
         if (await checkIfExist()) {
             return { gameName: game.name, state: "changed" };
