@@ -65,18 +65,24 @@ export class Cleaner {
     }
 
     emptyLobbies(lobbies: Lobby[]) {
-        cleanerlogger.info(`check emptying ${lobbies.length} lobbies`);
-        const canidatesToDistroy = lobbies.filter((l) => l.playersCount === 0 && l.createdAt.getTime() < Date.now() - 15 * 1000);
-        cleanerlogger.info(`found ${canidatesToDistroy.length} empty lobbies to destroy for game`);
+        setImmediate(() => {
+            try {
+                cleanerlogger.info(`check emptying ${lobbies.length} lobbies`);
+                const canidatesToDistroy = lobbies.filter((l) => l.playersCount === 0 && l.createdAt.getTime() < Date.now() - 15 * 1000);
+                cleanerlogger.info(`found ${canidatesToDistroy.length} empty lobbies to destroy for game`);
 
-        if (dataSource.isInitialized) {
-            dataSource.getRepository(Lobby).remove(canidatesToDistroy).then(() => {
-                canidatesToDistroy.forEach((lobby) => {
-                    cleanerlogger.info('destroyed empty lobby for game: ', lobby.game.name, ' lobby:', lobby);
-                })
-            }).catch((err) => {
-                cleanerlogger.error('error while destroying empty lobbies:', err);
-            })
-        }
+                if (dataSource.isInitialized) {
+                    dataSource.getRepository(Lobby).remove(canidatesToDistroy).then(() => {
+                        canidatesToDistroy.forEach((lobby) => {
+                            cleanerlogger.info('destroyed empty lobby for game: ', lobby.game.name, ' lobby:', lobby);
+                        })
+                    }).catch((err) => {
+                        cleanerlogger.error('error while destroying empty lobbies:', err);
+                    })
+                }
+            } catch (err) {
+                cleanerlogger.error('error in emptyLobbies:', err);
+            }
+        })
     }
 }

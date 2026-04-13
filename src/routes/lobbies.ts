@@ -62,11 +62,12 @@ lobbiesRouter.get('/:game/quick-play', async (req, res, next) => {
         }));
         const canidates = list.filter((l) => l.playersCount > 0);
 
+        if (list.length > canidates.length) {
+            cleanerlogger.info(`quick play: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
+            cleaner.emptyLobbies(list.filter(l => canidates.includes(l) === false));
+        }
+
         if (canidates.length === 0) {
-            if (list.length > 0) {
-                cleanerlogger.info(`quick play: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
-                cleaner.emptyLobbies(list);
-            }
             return res.status(404).json({ error: 'No visible lobbies' });
         }
 
@@ -96,7 +97,17 @@ lobbiesRouter.get('/:game/visibles', async (req, res, next) => {
 
     try {
         const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, select: ['token', 'playersCount', 'password'] })
-        const visibles = list.map((l) => ({ token: l.token, playersCount: l.playersCount, password: typeof l.password === 'string' && l.password.length > 0 ? "true" : undefined }));
+        const canidates = list.filter((l) => l.playersCount > 0);
+
+        if (list.length > canidates.length) {
+            cleanerlogger.info(`lobbies: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
+            cleaner.emptyLobbies(list.filter(l => canidates.includes(l) === false));
+
+        }
+
+        const visibles = canidates.map((l) => ({ token: l.token, playersCount: l.playersCount, password: typeof l.password === 'string' && l.password.length > 0 ? "true" : undefined }));
+
+
 
         return res.status(200).json(visibles);
     } catch (err) {
