@@ -9,6 +9,7 @@ export type LobbyRow = {
     visible: boolean;
     playersCount: number;
     password?: string;
+    accessToken?: string;
 };
 
 function hasPassword(row: LobbyRow): boolean {
@@ -17,6 +18,7 @@ function hasPassword(row: LobbyRow): boolean {
 
 function matchesWhere(row: LobbyRow, where: Record<string, unknown>): boolean {
     if (where.token !== undefined && row.token !== where.token) return false;
+    if (where.gameId !== undefined && row.gameId !== where.gameId) return false;
     const game = where.game as { id?: number } | undefined;
     if (game?.id !== undefined && row.gameId !== game.id) return false;
     if (where.visible !== undefined && row.visible !== where.visible) return false;
@@ -37,11 +39,13 @@ function matchesWhere(row: LobbyRow, where: Record<string, unknown>): boolean {
 function toLobbyEntity(row: LobbyRow) {
     return {
         token: row.token,
+        gameId: row.gameId,
         game: { id: row.gameId },
         webRTCId: row.webRTCId,
         visible: row.visible,
         playersCount: row.playersCount,
         password: row.password,
+        accessToken: row.accessToken,
     };
 }
 
@@ -80,6 +84,7 @@ export function createFakeLobbyDataSource() {
             visible?: boolean;
             playersCount?: number;
             password?: string;
+            accessToken?: string;
         }) {
             const gameId = lobby.game?.id;
             const ix = rows.findIndex((r) => r.token === lobby.token && r.gameId === gameId);
@@ -94,6 +99,9 @@ export function createFakeLobbyDataSource() {
                 password: Object.prototype.hasOwnProperty.call(lobby, "password")
                     ? lobby.password
                     : prev?.password,
+                accessToken: Object.prototype.hasOwnProperty.call(lobby, "accessToken")
+                    ? lobby.accessToken
+                    : prev?.accessToken,
             };
 
             if (ix >= 0) rows[ix] = plain;
@@ -101,9 +109,16 @@ export function createFakeLobbyDataSource() {
             return lobby;
         },
 
-        delete(criteria: { token: string; game: { id: number } }) {
-            const gid = criteria.game.id;
-            const ix = rows.findIndex((r) => r.token === criteria.token && r.gameId === gid);
+        delete(criteria: unknown) {
+            const c = criteria as {
+                token?: string;
+                game?: { id?: number };
+                gameId?: number;
+            };
+            const token = c.token;
+            const gid = c.game?.id ?? c.gameId;
+            if (token === undefined || gid === undefined) return;
+            const ix = rows.findIndex((r) => r.token === token && r.gameId === gid);
             if (ix >= 0) rows.splice(ix, 1);
         },
     };

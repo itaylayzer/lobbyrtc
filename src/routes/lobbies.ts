@@ -59,8 +59,9 @@ lobbiesRouter.get('/:game/quick-play', async (req, res, next) => {
     try {
         const list = (await dataSource.getRepository(Lobby).find({
             where: { game: { id: +game }, visible: true, password: undefined },
+            relations: { game: true }
         }));
-        const canidates = list.filter((l) => l.playersCount > 0);
+        const canidates = list.filter((l) => l.playersCount > 0 && l.playersCount < l.game.maxPlayers);
 
         if (list.length > canidates.length) {
             cleanerlogger.info(`quick play: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
@@ -96,8 +97,8 @@ lobbiesRouter.get('/:game/visibles', async (req, res, next) => {
     }
 
     try {
-        const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, select: ['token', 'playersCount', 'password'] })
-        const canidates = list.filter((l) => l.playersCount > 0);
+        const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, relations: { game: true }, select: ['token', 'playersCount', 'password'] });
+        const canidates = list.filter((l) => l.playersCount > 0 && l.playersCount < l.game.maxPlayers);
 
         if (list.length > canidates.length) {
             cleanerlogger.info(`lobbies: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
@@ -170,9 +171,7 @@ lobbiesRouter.get('/:game/:token', async (req, res, next) => {
         const lobby = await dataSource.getRepository(Lobby).findOne({
             where: {
                 token,
-                game: {
-                    id: +game
-                }
+                gameId: +game,
             },
             select: ['webRTCId', 'playersCount', 'password']
         })

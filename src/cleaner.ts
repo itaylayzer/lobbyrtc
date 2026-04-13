@@ -68,7 +68,7 @@ export class Cleaner {
         setImmediate(() => {
             try {
                 cleanerlogger.info(`check emptying ${lobbies.length} lobbies`);
-                const canidatesToDistroy = lobbies.filter((l) => l.playersCount === 0 && l.createdAt.getTime() < Date.now() - 15 * 1000);
+                const canidatesToDistroy = lobbies.filter((l) => l.playersCount <= 0 && l.playersCount >= l.game.maxPlayers && l.createdAt.getTime() < Date.now() - 15 * 1000);
                 cleanerlogger.info(`found ${canidatesToDistroy.length} empty lobbies to destroy for game`);
 
                 if (dataSource.isInitialized) {
