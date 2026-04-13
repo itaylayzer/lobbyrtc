@@ -4,6 +4,8 @@ HTTP API and [PeerJS](https://peerjs.com/) signaling server for game lobbies. Cl
 
 If you want to see a live site that talks to this kind of backend, open **[itaylayzer.github.io/catan.io/](https://itaylayzer.github.io/catan.io/)**.
 
+![](thumb.png)
+
 ## What you get
 
 - **REST API** under `/lobbies` for creating, listing, fetching, updating, and deleting lobbies.
