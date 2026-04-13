@@ -95,9 +95,10 @@ lobbiesRouter.get('/:game/visibles', async (req, res, next) => {
     }
 
     try {
-        const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, select: ['token', 'playersCount', 'webRTCId', 'password'] })
+        const list = await dataSource.getRepository(Lobby).find({ where: { game: { id: +game }, visible: true }, select: ['token', 'playersCount', 'password'] })
+        const visibles = list.map((l) => ({ token: l.token, playersCount: l.playersCount, password: typeof l.password === 'string' && l.password.length > 0 ? "true" : undefined }));
 
-        return res.status(200).json(list);
+        return res.status(200).json(visibles);
     } catch (err) {
         res.status(500).json({ error: 'Internal server error', errorDetails: err });
         return next(err);
@@ -167,6 +168,20 @@ lobbiesRouter.get('/:game/:token', async (req, res, next) => {
         if (lobby === null) {
             return res.status(404).json({ error: 'Lobby not found' });
         }
+
+        const doNeedPassword = typeof lobby.password === 'string' && lobby.password.length > 0;
+        if (doNeedPassword) {
+            if ((typeof req.headers.authorization !== 'string' || req.headers.authorization.length === 0 || req.headers.authorization.startsWith('Bearer ') === false)) {
+                return res.status(401).json({ error: 'Missing or invalid authorization header' });
+            }
+
+            const credentials = Buffer.from(req.headers.authorization.split(' ')[1], 'base64').toString();
+            const providedPassword = credentials.split(':')[1];
+            if (providedPassword !== lobby.password) {
+                return res.status(403).json({ error: 'Invalid password' });
+            }
+        }
+
 
         return res.status(200).json({ webRTCId: lobby.webRTCId, playersCount: lobby.playersCount, password: lobby.password });
     } catch (err) {
