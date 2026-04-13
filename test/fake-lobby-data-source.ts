@@ -2,6 +2,9 @@
  * Minimal in-memory stand-in for TypeORM calls used by `generateToken` and `lobbies` routes.
  */
 
+/** Matches `Game.maxPlayers` default in `src/entities/game.ts`. */
+const DEFAULT_GAME_MAX_PLAYERS = 8;
+
 export type LobbyRow = {
     token: string;
     gameId: number;
@@ -40,7 +43,7 @@ function toLobbyEntity(row: LobbyRow) {
     return {
         token: row.token,
         gameId: row.gameId,
-        game: { id: row.gameId },
+        game: { id: row.gameId, maxPlayers: DEFAULT_GAME_MAX_PLAYERS },
         webRTCId: row.webRTCId,
         visible: row.visible,
         playersCount: row.playersCount,
@@ -53,11 +56,16 @@ export function createFakeLobbyDataSource() {
     const rows: LobbyRow[] = [];
 
     const repo = {
-        async find(opts?: { where?: Record<string, unknown>; select?: string[] }) {
+        async find(opts?: {
+            where?: Record<string, unknown>;
+            select?: string[];
+            relations?: { game?: boolean };
+        }) {
             const where = opts?.where ?? {};
             const list = rows.filter((r) => matchesWhere(r, where));
             const sel = opts?.select;
             if (sel?.length) {
+                const withGame = opts?.relations?.game === true;
                 return list.map((r) => {
                     const o: Record<string, unknown> = {};
                     for (const k of sel) {
@@ -65,6 +73,9 @@ export function createFakeLobbyDataSource() {
                         else if (k === "playersCount") o.playersCount = r.playersCount;
                         else if (k === "webRTCId") o.webRTCId = r.webRTCId;
                         else if (k === "password") o.password = r.password ?? null;
+                    }
+                    if (withGame) {
+                        o.game = { id: r.gameId, maxPlayers: DEFAULT_GAME_MAX_PLAYERS };
                     }
                     return o;
                 });

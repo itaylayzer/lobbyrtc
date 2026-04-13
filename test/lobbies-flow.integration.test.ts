@@ -274,12 +274,14 @@ describe.serial("Lobby API — two-session flow (in-memory fake DB)", () => {
         check("picked B2", pick.token === flow.tokenB2);
     });
 
-    test("13 GET visibles: A, B2, password lobby; hidden B absent", async () => {
-        console.log("\n— 13 Visibles still omit hidden B —");
+    test("13 GET visibles: B2 + password lobby; A omitted when full; hidden B absent", async () => {
+        console.log("\n— 13 Visibles after A hit maxPlayers —");
         const vis2 = await fetch(lobbyPath("/visibles"));
         const list2 = (await vis2.json()) as Array<{ token: string }>;
         const tokens2 = new Set(list2.map((l) => l.token));
-        check("visibles has A, B2, password lobby", tokens2.has(flow.tokenA) && tokens2.has(flow.tokenB2) && tokens2.has(flow.tokenPwd));
+        // A has playersCount 9 >= game.maxPlayers (8) → not a join candidate, omitted from visibles
+        check("visibles has B2 and password lobby", tokens2.has(flow.tokenB2) && tokens2.has(flow.tokenPwd));
+        check("visibles omits full lobby A", !tokens2.has(flow.tokenA));
         check("visibles still omits hidden B", !tokens2.has(flow.tokenB));
     });
 

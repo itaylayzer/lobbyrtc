@@ -61,7 +61,7 @@ lobbiesRouter.get('/:game/quick-play', async (req, res, next) => {
             where: { game: { id: +game }, visible: true, password: undefined },
             relations: { game: true }
         }));
-        const canidates = list.filter((l) => l.playersCount > 0 && l.playersCount < l.game.maxPlayers);
+        const canidates = list.filter((l) => l.playersCount > 0 && l.playersCount < l.game.maxPlayers && l.password === undefined);
 
         if (list.length > canidates.length) {
             cleanerlogger.info(`quick play: no candidates with players count > 0, emptying ${list.length} lobbies for game ${game}`);
