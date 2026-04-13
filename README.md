@@ -2,7 +2,9 @@
 
 HTTP API and [PeerJS](https://peerjs.com/) signaling server for game lobbies. Clients register a lobby with a WebRTC / PeerJS id, share a short lobby code, and update player counts so matchmaking and “quick play” can pick a suitable room.
 
-If you want to see a live site that talks to this kind of backend, open **[itaylayzer.github.io/catan.io/](https://itaylayzer.github.io/catan.io/)**.
+If you want to see a live site that talks to this kind of backend, open **[itaylayzer.github.io/catan.io/](https://itaylayzer.github.io/catan.io/)**. \
+*example client can be found in `lib/client.ts`, it may not be perfect or suitable for all projects!*
+
 
 ![](thumb.png)
 
